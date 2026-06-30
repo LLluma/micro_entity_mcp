@@ -100,6 +100,24 @@ def entity_from_parts(
     )
 
 
+def entity_to_parts(entity: Entity) -> tuple[CommentedMap, str | None]:
+    """Render an Entity to frontmatter mapping + body (for store writes).
+
+    Emits created/updated as ISO-8601 strings.
+    Does NOT emit id (filename stem) or body as frontmatter keys.
+    Returns a CommentedMap so store can patch it losslessly on update.
+    """
+    fm: CommentedMap = CommentedMap(
+        {
+            "created": entity.created.isoformat(),
+            "updated": entity.updated.isoformat(),
+        }
+    )
+    for k, v in entity.attributes.items():
+        fm[k] = v
+    return fm, entity.body
+
+
 def serialize_document(frontmatter: CommentedMap, body: str | None) -> str:
     """Render frontmatter + body back into markdown document text.
 
