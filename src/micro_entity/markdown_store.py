@@ -6,7 +6,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from micro_entity.validation import FormError, validate_id
+from micro_entity.codec import entity_to_parts, serialize_document
+from micro_entity.entity import Entity
+from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
 
 
 class MarkdownStore:
@@ -56,3 +58,41 @@ class MarkdownStore:
         except BaseException:
             os.unlink(tmp_path)
             raise
+
+    def create(
+        self,
+        id: str,
+        *,
+        attributes: dict[str, Scalar | list[Scalar]],
+        body: str | None = None,
+    ) -> Entity:
+        """Persist a new entity record as a markdown file.
+
+        Stamps both ``created`` and ``updated`` from the injected clock.
+        Raises ``FileExistsError`` if the file already exists.
+
+        Validation (id shape, attribute values) runs **before** any file is
+        written, so a bad request leaves no partial file on disk.
+        """
+        # Form-validated id — raises FormError immediately.
+        path = self._path_for(id)
+        if path.is_file():
+            raise FileExistsError(f"entity already exists: {id}")
+
+        # Validate all attribute values before touching the filesystem.
+        for val in attributes.values():
+            validate_attribute_value(val)
+
+        ts = self._clock()
+        entity = Entity(
+            id=id,
+            created=ts,
+            updated=ts,
+            attributes=attributes,
+            body=body,
+        )
+
+        fm, body_text = entity_to_parts(entity)
+        document = serialize_document(fm, body_text)
+        self._atomic_write(path, document)
+        return entity
