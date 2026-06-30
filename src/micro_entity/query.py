@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
+
 from micro_entity.entity import Entity
 from micro_entity.validation import Scalar
 
@@ -36,3 +38,15 @@ def match_attribute(entity: Entity, key: str, values: list[Scalar]) -> bool:
                 return True
 
     return False
+
+
+def query(entities: Iterable[Entity], criteria: Mapping[str, list[Scalar]]) -> list[Entity]:
+    """Return entities matching every (key, values) pair in *criteria*.
+
+    Logical AND across keys, OR across values within a key (delegated to
+    :func:`match_attribute`).  Empty *criteria* matches all (vacuous AND).
+    """
+    if not criteria:
+        return list(entities)
+
+    return [e for e in entities if all(match_attribute(e, k, vs) for k, vs in criteria.items())]

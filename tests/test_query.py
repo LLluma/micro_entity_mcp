@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from micro_entity.entity import Entity
-from micro_entity.query import match_attribute
+from micro_entity.query import match_attribute, query
 from micro_entity.validation import Scalar
 
 _fixture_ts = datetime(2024, 1, 1, tzinfo=UTC)
@@ -99,3 +99,82 @@ class TestCaseSensitive:
         """exact case match -> True"""
         e = _entity({"label": "Tag"})
         assert match_attribute(e, "label", ["Tag"]) is True
+
+
+# --- query: multi-attribute filtering ---
+
+
+def _entities(attrs_list: list[dict[str, Scalar | list[Scalar]]]) -> list[Entity]:
+    ts = _fixture_ts
+    return [
+        Entity(id=f"e{i}", created=ts, updated=ts, attributes=a) for i, a in enumerate(attrs_list)
+    ]
+
+
+class TestQueryTwoCriteria:
+    def test_and_must_both_match(self) -> None:
+        """two criteria -> only entities matching BOTH"""
+        es = _entities(
+            [
+                {"color": "red", "size": "small"},  # matches both
+                {"color": "red", "size": "large"},  # matches only color
+                {"color": "blue", "size": "small"},  # matches only size
+                {"color": "blue", "size": "large"},  # matches neither
+            ]
+        )
+        result = query(es, {"color": ["red"], "size": ["small"]})
+        assert len(result) == 1
+        assert result[0].attributes == {"color": "red", "size": "small"}
+
+    def test_entity_matching_one_but_not_other_excluded(self) -> None:
+        """entity matching one criterion but not other -> excluded"""
+        es = _entities([{"color": "red", "size": "large"}])
+        result = query(es, {"color": ["red"], "size": ["small"]})
+        assert result == []
+
+
+class TestQueryValuesOr:
+    def test_single_criterion_or(self) -> None:
+        """within a single criterion the values OR — matches any"""
+        es = _entities(
+            [
+                {"color": "red"},
+                {"color": "blue"},
+                {"color": "green"},
+            ]
+        )
+        result = query(es, {"color": ["red", "green"]})
+        assert len(result) == 2
+        assert result[0].attributes == {"color": "red"}
+        assert result[1].attributes == {"color": "green"}
+
+
+class TestQueryEmptyCriteria:
+    def test_empty_criteria_returns_all(self) -> None:
+        """criteria == {} -> return ALL entities, same objects, same order"""
+        es = _entities([{"x": "a"}, {"x": "b"}, {"x": "c"}])
+        result = query(es, {})
+        assert len(result) == 3
+        assert all(result[i] is es[i] for i in range(len(es)))
+
+    def test_empty_entities_with_criteria(self) -> None:
+        """query([], {...}) -> []"""
+        result = query([], {"color": ["red"]})
+        assert result == []
+
+
+class TestQueryEmptyValues:
+    def test_empty_value_list_excludes_all(self) -> None:
+        """one criterion with [] -> no entity matches, even if other would"""
+        es = _entities([{"color": "red", "size": "small"}])
+        result = query(es, {"color": ["red"], "size": []})
+        assert result == []
+
+
+class TestQueryStable:
+    def test_result_order_equals_input_order(self) -> None:
+        """stable filter — result order matches input order"""
+        es = _entities([{"val": i} for i in range(6)])
+        # criteria match x0, x2, x4, x5 (values 0,2,4,5)
+        result = query(es, {"val": [0, 2, 4, 5]})
+        assert [e.id for e in result] == ["e0", "e2", "e4", "e5"]
