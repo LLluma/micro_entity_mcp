@@ -121,6 +121,25 @@ def _load_all_migrated(
     return (entities, errors)
 
 
+def _entity_matches_text(entity: Entity, needle: str) -> bool:
+    """True if ``needle`` (case-insensitive) is a substring of the body or any
+    attribute value (stringified)."""
+    low = needle.lower()
+    # body
+    if entity.body is not None and low in entity.body.lower():
+        return True
+    # attributes
+    for value in entity.attributes.values():
+        if isinstance(value, list):
+            for v in value:
+                if low in str(v).lower():
+                    return True
+        else:
+            if low in str(value).lower():
+                return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
@@ -234,6 +253,12 @@ def build_server(store: MarkdownStore) -> FastMCP:
     def query(criteria: dict[str, list] | None = None) -> dict:
         entities, _ = _load_all_migrated(store)
         matched = query_entities(entities, criteria or {})
+        return {"items": [_entity_to_dict(e) for e in matched]}
+
+    @mcp.tool
+    def search(text: str) -> dict:
+        entities, _ = _load_all_migrated(store)
+        matched = [e for e in entities if _entity_matches_text(e, text)]
         return {"items": [_entity_to_dict(e) for e in matched]}
 
     return mcp
