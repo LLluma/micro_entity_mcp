@@ -13,7 +13,7 @@ from micro_entity.codec import (
     serialize_document,
 )
 from micro_entity.entity import Entity
-from micro_entity.store import NotFoundError
+from micro_entity.store import LoadError, NotFoundError
 from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
 
 
@@ -119,3 +119,28 @@ class MarkdownStore:
         document = serialize_document(fm, body_text)
         self._atomic_write(path, document)
         return entity
+
+    def load_all(self) -> tuple[list[Entity], list[LoadError]]:
+        """Load every ``.md`` record in the directory.
+
+        Valid records become ``Entity`` instances, sorted by id.
+        Malformed files yield a ``LoadError`` with their stem and the
+        exception message.  Returns ``(entities, errors)`` — never
+        raises.
+        """
+        entities: list[Entity] = []
+        errors: list[LoadError] = []
+
+        if not self._directory.is_dir():
+            return (entities, errors)
+
+        for path in sorted(self._directory.glob("*.md")):
+            stem = path.stem
+            try:
+                entity = self.get(stem)
+                entities.append(entity)
+            except Exception as exc:
+                errors.append(LoadError(id=stem, reason=str(exc)))
+
+        entities.sort(key=lambda e: e.id)
+        return (entities, errors)
