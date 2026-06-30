@@ -56,3 +56,28 @@ def parse_document(text: str) -> tuple[CommentedMap, str | None]:
         body = None
 
     return fm, body
+
+
+def serialize_document(frontmatter: CommentedMap, body: str | None) -> str:
+    """Render frontmatter + body back into markdown document text.
+
+    Preserves key order and comments in frontmatter (round-trip stable).
+    body=None → no body region; body="" → empty body region; body="..." → body content.
+    """
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    stream = StringIO()
+    yaml.dump(frontmatter, stream)
+    yaml_content = stream.getvalue()
+
+    # Ensure each line ends with a newline; remove trailing newline so we
+    # can control the delimiter separator atomically below.
+    yaml_lines = yaml_content.rstrip("\n")
+
+    if body is None:
+        # Frontmatter only — no body region at all
+        return f"---\n{yaml_lines}\n---"
+    else:
+        # body is "" → ending "---\n" then body (empty)
+        # body is "..." → ending "---\n" then body verbatim
+        return f"---\n{yaml_lines}\n---\n{body}"
