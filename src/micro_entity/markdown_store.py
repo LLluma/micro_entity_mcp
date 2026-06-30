@@ -17,6 +17,23 @@ from micro_entity.store import LoadError, NotFoundError
 from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
 
 
+class UnsetType:
+    """Sentinel singleton indicating "no value supplied"."""
+
+    _instance: "UnsetType | None" = None
+
+    def __new__(cls) -> "UnsetType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = UnsetType()
+
+
 class MarkdownStore:
     """A store that maps entity ids to ``.md`` files under a directory."""
 
@@ -119,6 +136,54 @@ class MarkdownStore:
         document = serialize_document(fm, body_text)
         self._atomic_write(path, document)
         return entity
+
+    def update(
+        self,
+        id: str,
+        *,
+        attributes: dict[str, Scalar | list[Scalar]] | None = None,
+        body: str | None | UnsetType = UNSET,
+    ) -> Entity:
+        """Patch an existing entity record.
+
+        *attributes* values are validated **before** any I/O; a bad value
+        leaves the file untouched.  The frontmatter ``CommentedMap`` is
+        patched in-place so comments, key-order, and untouched keys survive.
+
+        Body behaviour: omit ``body`` (or pass ``UNSET``) to keep the
+        existing body verbatim; pass ``body=""``/``body="..."``/``body=None``
+        to replace it.  ``body=None`` removes the body region entirely.
+
+        Returns the updated ``Entity``.
+
+        Raises ``NotFoundError`` if *id* does not exist.
+        """
+        path = self._path_for(id)
+        if not path.is_file():
+            raise NotFoundError(f"entity not found: {id}")
+
+        text = path.read_text(encoding="utf-8")
+        fm, existing_body = parse_document(text)
+
+        # Validate ALL provided attribute values before touching the filesystem.
+        if attributes is not None:
+            for val in attributes.values():
+                validate_attribute_value(val)
+            # Patch the CommentedMap in-place (preserves comments, order, other keys).
+            for k, v in attributes.items():
+                fm[k] = v
+
+        fm["updated"] = self._clock().isoformat()
+
+        if body is UNSET:
+            new_body = existing_body
+        else:
+            assert isinstance(body, (str, type(None)))
+            new_body = body
+
+        document = serialize_document(fm, new_body)
+        self._atomic_write(path, document)
+        return entity_from_parts(id, fm, new_body)
 
     def load_all(self) -> tuple[list[Entity], list[LoadError]]:
         """Load every ``.md`` record in the directory.
