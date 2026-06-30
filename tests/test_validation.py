@@ -2,7 +2,7 @@
 
 import pytest
 
-from micro_entity.validation import FormError, Scalar, validate_attribute_value
+from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
 
 
 class TestScalarsPass:
@@ -66,3 +66,50 @@ class TestScalarAlias:
     def test_scalar_alias_is_exported(self) -> None:
         # Scalar = str | int | float | bool — it's a UnionType
         assert Scalar is not None
+
+
+class TestValidIdPasses:
+    """Valid IDs must pass validate_id without error."""
+
+    @pytest.mark.parametrize(
+        "value",
+        ["ADR-0007", "001", "build-entity", "3f9a_b2"],
+        ids=["adr", "numeric", "kebab", "mixed"],
+    )
+    def test_valid_id_passes(self, value: str) -> None:
+        assert validate_id(value) is None
+
+
+class TestInvalidIdRaises:
+    """Invalid IDs must raise FormError."""
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            "hello world",
+            "path/sep",
+            "back\\slash",
+            ".",
+            "..",
+            ".hidden",
+            "\N{SNOWMAN}",
+            "\x00bad",
+            "a" * 201,
+        ],
+        ids=[
+            "empty",
+            "whitespace",
+            "fwd_slash",
+            "backslash",
+            "dot",
+            "dotdot",
+            "leading_dot",
+            "non_ascii",
+            "control_char",
+            "too_long",
+        ],
+    )
+    def test_invalid_id_raises(self, value: str) -> None:
+        with pytest.raises(FormError):
+            validate_id(value)
