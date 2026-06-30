@@ -209,3 +209,25 @@ class MarkdownStore:
 
         entities.sort(key=lambda e: e.id)
         return (entities, errors)
+
+    def delete(self, id: str) -> None:
+        """Remove the ``.md`` file for *id*.
+
+        Raises ``NotFoundError`` if the file does not exist.
+        """
+        path = self._path_for(id)
+        if not path.is_file():
+            raise NotFoundError(f"entity not found: {id}")
+        path.unlink()
+
+    def clear(self) -> None:
+        """Remove every ``.md`` record file directly in the store directory.
+
+        Leaves non-``.md`` files and subdirectories untouched.  No-op when
+        the store is already empty.
+        """
+        if not self._directory.is_dir():
+            return
+        for path in self._directory.glob("*.md"):
+            if path.is_file():
+                path.unlink()
