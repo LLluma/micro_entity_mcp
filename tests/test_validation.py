@@ -2,7 +2,13 @@
 
 import pytest
 
-from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
+from micro_entity.validation import (
+    FormError,
+    Scalar,
+    validate_against_set,
+    validate_attribute_value,
+    validate_id,
+)
 
 
 class TestScalarsPass:
@@ -113,3 +119,67 @@ class TestInvalidIdRaises:
     def test_invalid_id_raises(self, value: str) -> None:
         with pytest.raises(FormError):
             validate_id(value)
+
+
+class TestValidateAgainstSet:
+    """Tests for validate_against_set — type-strict membership in an allowed set."""
+
+    def test_scalar_present_in_allowed_passes(self) -> None:
+        """A scalar value present in the allowed set passes (no exception)."""
+        allowed = {"red", "green", "blue"}
+        assert validate_against_set("green", allowed) is None
+
+    def test_scalar_absent_raises_form_error(self) -> None:
+        """A scalar absent from the allowed set raises FormError."""
+        allowed = {"red", "green", "blue"}
+        with pytest.raises(FormError):
+            validate_against_set("yellow", allowed)
+
+    def test_list_all_elements_in_set_passes(self) -> None:
+        """A list whose every element is in the set passes."""
+        allowed = {"red", "green", "blue"}
+        assert validate_against_set(["red", "blue"], allowed) is None
+
+    def test_list_one_element_absent_raises(self) -> None:
+        """A list with one element absent raises FormError naming that element."""
+        allowed = {"red", "green", "blue"}
+        with pytest.raises(FormError):
+            validate_against_set(["red", "yellow"], allowed)
+
+    def test_empty_list_value_passes(self) -> None:
+        """An empty list value passes (vacuously true)."""
+        allowed = {"red", "green", "blue"}
+        assert validate_against_set([], allowed) is None
+
+    def test_empty_allowed_set_scalar_raises(self) -> None:
+        """Empty allowed set with a scalar raises FormError."""
+        with pytest.raises(FormError):
+            validate_against_set("red", set())
+
+    def test_empty_allowed_set_nonempty_list_raises(self) -> None:
+        """Empty allowed set with a non-empty list raises FormError."""
+        with pytest.raises(FormError):
+            validate_against_set(["red"], set())
+
+    def test_empty_allowed_set_empty_list_passes(self) -> None:
+        """Empty allowed set with an empty list passes."""
+        assert validate_against_set([], set()) is None
+
+    def test_type_strict_int_not_in_str_set(self) -> None:
+        """Type-strict check: 1 (int) not in {"1"} (str set) raises FormError."""
+        allowed: set[str] = {"1"}
+        with pytest.raises(FormError):
+            validate_against_set(1, allowed)
+
+    def test_error_message_includes_offending_and_allowed(self) -> None:
+        """The error message includes the offending value and the allowed set."""
+        allowed = {"red", "green", "blue"}
+        try:
+            validate_against_set("yellow", allowed)
+            raise AssertionError("should have raised FormError")
+        except FormError as exc:
+            msg = str(exc)
+            assert "yellow" in msg
+            assert "red" in msg
+            assert "green" in msg
+            assert "blue" in msg
