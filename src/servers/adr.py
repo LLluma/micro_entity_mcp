@@ -8,8 +8,10 @@ from pathlib import Path
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
+from micro_entity.codec import entity_from_parts, parse_document
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import MarkdownStore
+from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
@@ -63,6 +65,23 @@ def _normalize_frontmatter(fm: dict) -> dict:
     return fm
 
 
+def _get_migrated(store: MarkdownStore, id: str) -> Entity:
+    """Read one record, migrating legacy timestamps, and return the Entity.
+
+    Raises ``NotFoundError`` if the file does not exist.
+    """
+    path = store._path_for(id)
+    if not path.is_file():
+        raise NotFoundError(f"decision not found: {id}")
+    fm, body = parse_document(path.read_text(encoding="utf-8"))
+    fm = _normalize_frontmatter(fm)
+
+    # Drop the legacy ``date`` key so it doesn't pollute entity attributes
+    fm.pop("date", None)
+
+    return entity_from_parts(id, fm, body)
+
+
 def _entity_to_dict(entity: Entity) -> dict:
     """Convert an Entity to a JSON-safe dict (timestamps as ISO strings)."""
     return entity.model_dump(mode="json")
@@ -106,6 +125,17 @@ def build_server(store: MarkdownStore) -> FastMCP:
             entity = store.create(id, attributes=attrs, body=body)
         except FileExistsError:
             raise ToolError(f"decision already exists: {id}") from None
+        except FormError as e:
+            raise ToolError(str(e)) from e
+
+        return _entity_to_dict(entity)
+
+    @mcp.tool
+    def get(id: str) -> dict:
+        try:
+            entity = _get_migrated(store, id)
+        except NotFoundError as e:
+            raise ToolError(str(e)) from None
         except FormError as e:
             raise ToolError(str(e)) from e
 

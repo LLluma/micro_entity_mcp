@@ -175,3 +175,60 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
     r = asyncio.run(go())
     data = r.data
     assert data["attributes"]["status"] == "Accepted"
+
+
+# ---------------------------------------------------------------------------
+# get tool
+# ---------------------------------------------------------------------------
+
+
+def test_get_returns_added_entity(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0007",
+                    "title": "T",
+                    "body": "prose",
+                },
+            )
+            return await c.call_tool("get", {"id": "ADR-0007"})
+
+    r = asyncio.run(go())
+    data = r.data
+    assert data["id"] == "ADR-0007"
+    assert data["attributes"]["title"] == "T"
+    assert data["body"] == "prose"
+
+
+def test_get_legacy_migration(tmp_path: Path) -> None:
+    # Write a legacy record (only ``date``, no created/updated)
+    (tmp_path / "ADR-0100.md").write_text(
+        "---\nid: ADR-0100\ntitle: Legacy\nstatus: Accepted\ndate: 2026-06-29\n---\nLegacy body\n",
+        encoding="utf-8",
+    )
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool("get", {"id": "ADR-0100"})
+
+    r = asyncio.run(go())
+    data = r.data
+    assert data["attributes"]["title"] == "Legacy"
+    # Migrated timestamps should be midnight UTC of the date
+    assert data["created"] == "2026-06-29T00:00:00Z"
+    assert data["updated"] == "2026-06-29T00:00:00Z"
+
+
+def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "get",
+                {"id": "ADR-9999"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
