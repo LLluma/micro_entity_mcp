@@ -169,6 +169,13 @@ def build_server(store: MarkdownStore) -> FastMCP:
         store.clear()
         return {"cleared": True}
 
+    @mcp.tool
+    def is_complete() -> bool:
+        entities, _ = store.load_all()
+        return not any(
+            e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
+        )
+
     return mcp
 
 
