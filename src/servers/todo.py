@@ -8,6 +8,7 @@ from fastmcp.exceptions import ToolError
 
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
@@ -109,6 +110,12 @@ def build_server(store: MarkdownStore) -> FastMCP:
             "items": [_entity_to_dict(e) for e in entities],
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
+
+    @mcp.tool
+    def query(criteria: dict[str, list] | None = None) -> dict:
+        entities, _ = store.load_all()
+        matched = query_entities(entities, criteria or {})
+        return {"items": [_entity_to_dict(e) for e in matched]}
 
     @mcp.tool
     def update(
