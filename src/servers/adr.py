@@ -11,7 +11,7 @@ from fastmcp.exceptions import ToolError
 from micro_entity.codec import entity_from_parts, parse_document
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import MarkdownStore
-from micro_entity.store import NotFoundError
+from micro_entity.store import LoadError, NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
@@ -88,6 +88,39 @@ def _entity_to_dict(entity: Entity) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_all_migrated(
+    store: MarkdownStore,
+) -> tuple[list[Entity], list[LoadError]]:
+    """Load every record in the partition, migrating legacy timestamps.
+
+    Each ``.md`` file that parses/validates (after migration) becomes an Entity;
+    each that fails becomes a ``LoadError(id=<stem>, reason=<message>)``.
+    Entities are returned sorted by id. Never raises on a single bad record.
+    Returns ``([], [])`` when the directory is absent.
+    """
+    if not store._directory.is_dir():
+        return ([], [])
+
+    entities: list[Entity] = []
+    errors: list[LoadError] = []
+
+    for path in sorted(store._directory.glob("*.md")):
+        stem = path.stem
+        try:
+            entity = _get_migrated(store, stem)
+            entities.append(entity)
+        except Exception as exc:
+            errors.append(LoadError(id=stem, reason=str(exc)))
+
+    entities.sort(key=lambda e: e.id)
+    return (entities, errors)
+
+
+# ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
 
@@ -140,6 +173,14 @@ def build_server(store: MarkdownStore) -> FastMCP:
             raise ToolError(str(e)) from e
 
         return _entity_to_dict(entity)
+
+    @mcp.tool(name="list")
+    def list_decisions() -> dict:
+        entities, errors = _load_all_migrated(store)
+        return {
+            "items": [_entity_to_dict(e) for e in entities],
+            "errors": [{"id": err.id, "reason": err.reason} for err in errors],
+        }
 
     return mcp
 
