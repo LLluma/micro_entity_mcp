@@ -6,9 +6,11 @@ from datetime import date as date_cls
 from pathlib import Path
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import MarkdownStore
+from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -82,6 +84,32 @@ def build_server(store: MarkdownStore) -> FastMCP:
     @mcp.tool
     def health() -> dict:
         return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
+
+    @mcp.tool
+    def add(
+        id: str,
+        title: str,
+        body: str,
+        attributes: dict | None = None,
+    ) -> dict:
+        attrs = dict(attributes) if attributes else {}
+        attrs["title"] = title
+
+        status = attrs.get(STATUS_KEY, DEFAULT_STATUS)
+        try:
+            validate_against_set(status, STATUS_VALUES)
+        except FormError as e:
+            raise ToolError(str(e)) from e
+        attrs[STATUS_KEY] = status
+
+        try:
+            entity = store.create(id, attributes=attrs, body=body)
+        except FileExistsError:
+            raise ToolError(f"decision already exists: {id}") from None
+        except FormError as e:
+            raise ToolError(str(e)) from e
+
+        return _entity_to_dict(entity)
 
     return mcp
 
