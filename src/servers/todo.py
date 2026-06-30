@@ -28,6 +28,27 @@ def _entity_to_dict(entity: Entity) -> dict:
     return entity.model_dump(mode="json")
 
 
+def _next_id(store: MarkdownStore) -> str:
+    """Return the next sequential ID based on existing entity filenames.
+
+    Only entity ids that are purely integer strings (e.g. ``"0001"``, ``"42"``)
+    are considered. Non-integer stems are skipped when determining the next
+    sequential id.
+
+    Returns ``max + 1`` formatted as ``"{:04d}"`` — zero-padded to width 4;
+    widths grow naturally beyond 4 when needed.
+    """
+    entities, _ = store.load_all()
+    max_n: int = 0
+    for entity in entities:
+        stem = entity.id
+        if stem.isdigit() and len(stem) > 0:
+            val = int(stem)
+            if val >= max_n:
+                max_n = val
+    return format(max_n + 1, "04d")
+
+
 # ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
