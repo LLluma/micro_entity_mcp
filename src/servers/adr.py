@@ -208,6 +208,27 @@ def build_server(store: MarkdownStore) -> FastMCP:
 
         return _entity_to_dict(updated)
 
+    @mcp.tool
+    def supersede(old_id: str, new_id: str) -> dict:
+        for ident in (old_id, new_id):
+            try:
+                path = store._path_for(ident)
+            except FormError as e:
+                raise ToolError(str(e)) from None
+            if not path.is_file():
+                raise ToolError(f"decision not found: {ident}")
+
+        old = store.update(
+            old_id,
+            attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
+        )
+        new = store.update(
+            new_id,
+            attributes={SUPERSEDES_KEY: old_id},
+        )
+
+        return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
+
     return mcp
 
 
