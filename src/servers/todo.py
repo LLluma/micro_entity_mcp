@@ -137,6 +137,19 @@ def build_server(store: MarkdownStore) -> FastMCP:
             raise ToolError(str(e)) from e
         return _entity_to_dict(updated)
 
+    @mcp.tool
+    def delete(id: str) -> dict:
+        try:
+            store.delete(id)
+        except NotFoundError as e:
+            raise ToolError(str(e)) from e
+        return {"deleted": id}
+
+    @mcp.tool
+    def clear() -> dict:
+        store.clear()
+        return {"cleared": True}
+
     return mcp
 
 
