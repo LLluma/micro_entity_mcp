@@ -145,6 +145,25 @@ def build_server(store: MarkdownStore) -> FastMCP:
             raise ToolError(str(e)) from e
         return {"deleted": id}
 
+    @mcp.tool(name="next")
+    def next_tool() -> dict | None:
+        entities, _ = store.load_all()
+        actionable = [
+            e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
+        ]
+        if not actionable:
+            return None
+
+        def _sort_key(e: Entity):
+            val = e.attributes.get(ORDER_KEY)
+            if isinstance(val, int) and not isinstance(val, bool):
+                return (0, val)
+            else:
+                return (1, 0)
+
+        actionable.sort(key=_sort_key)
+        return _entity_to_dict(actionable[0])
+
     @mcp.tool
     def clear() -> dict:
         store.clear()
