@@ -102,6 +102,14 @@ def build_server(store: MarkdownStore) -> FastMCP:
             raise ToolError(str(e)) from e
         return _entity_to_dict(entity)
 
+    @mcp.tool(name="list")
+    def list_items() -> dict:
+        entities, errors = store.load_all()
+        return {
+            "items": [_entity_to_dict(e) for e in entities],
+            "errors": [{"id": err.id, "reason": err.reason} for err in errors],
+        }
+
     return mcp
 
 
