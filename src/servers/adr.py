@@ -11,6 +11,7 @@ from fastmcp.exceptions import ToolError
 from micro_entity.codec import entity_from_parts, parse_document
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.query import query as query_entities
 from micro_entity.store import LoadError, NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
@@ -228,6 +229,12 @@ def build_server(store: MarkdownStore) -> FastMCP:
         )
 
         return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
+
+    @mcp.tool
+    def query(criteria: dict[str, list] | None = None) -> dict:
+        entities, _ = _load_all_migrated(store)
+        matched = query_entities(entities, criteria or {})
+        return {"items": [_entity_to_dict(e) for e in matched]}
 
     return mcp
 
