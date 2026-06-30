@@ -1,6 +1,11 @@
+# pyright: reportArgumentType=false
+from collections.abc import Mapping
+from datetime import datetime
 from io import StringIO
 
 from ruamel.yaml import YAML, CommentedMap
+
+from micro_entity.entity import Entity
 
 
 class CodecError(ValueError):
@@ -56,6 +61,43 @@ def parse_document(text: str) -> tuple[CommentedMap, str | None]:
         body = None
 
     return fm, body
+
+
+def entity_from_parts(
+    id: str,
+    frontmatter: Mapping[str, object],
+    body: str | None,
+) -> Entity:
+    """Build Entity from parsed frontmatter + body + supplied id.
+
+    Reads 'created' and 'updated' as timestamps (ISO-8601 strings or datetimes).
+    All other frontmatter keys become attributes.
+    Raises CodecError if timestamps missing/unparseable.
+    Propagates Entity validation errors unchanged.
+    """
+    timestamps: dict[str, datetime] = {}
+    for field in ("created", "updated"):
+        raw_obj = frontmatter.get(field)
+        if raw_obj is None:
+            raise CodecError(f"missing required timestamp: {field}")
+        if isinstance(raw_obj, datetime):
+            timestamps[field] = raw_obj
+        elif isinstance(raw_obj, str):
+            try:
+                timestamps[field] = datetime.fromisoformat(raw_obj)
+            except (TypeError, ValueError) as exc:
+                raise CodecError(f"unparseable timestamp for {field}: {raw_obj!r}") from exc
+        else:
+            raise CodecError(f"unparseable timestamp for {field}: {raw_obj!r}")
+
+    attributes: dict[str, object] = {k: v for k, v in frontmatter.items() if k not in timestamps}
+    return Entity(
+        id=id,
+        created=timestamps["created"],
+        updated=timestamps["updated"],
+        body=body,
+        attributes=attributes,
+    )
 
 
 def serialize_document(frontmatter: CommentedMap, body: str | None) -> str:
