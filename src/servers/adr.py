@@ -10,7 +10,7 @@ from fastmcp.exceptions import ToolError
 
 from micro_entity.codec import entity_from_parts, parse_document
 from micro_entity.entity import Entity
-from micro_entity.markdown_store import MarkdownStore
+from micro_entity.markdown_store import UNSET, MarkdownStore
 from micro_entity.store import LoadError, NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
@@ -181,6 +181,32 @@ def build_server(store: MarkdownStore) -> FastMCP:
             "items": [_entity_to_dict(e) for e in entities],
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
+
+    @mcp.tool
+    def update(
+        id: str,
+        status: str | None = None,
+        body: str | None = None,
+        attributes: dict | None = None,
+    ) -> dict:
+        patch: dict = dict(attributes) if attributes else {}
+        if status is not None:
+            try:
+                validate_against_set(status, STATUS_VALUES)
+            except FormError as e:
+                raise ToolError(str(e)) from e
+            patch[STATUS_KEY] = status
+
+        body_arg = body if body is not None else UNSET
+
+        try:
+            updated = store.update(id, attributes=(patch or None), body=body_arg)
+        except NotFoundError as e:
+            raise ToolError(str(e)) from e
+        except FormError as e:
+            raise ToolError(str(e)) from e
+
+        return _entity_to_dict(updated)
 
     return mcp
 

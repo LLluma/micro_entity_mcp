@@ -309,3 +309,76 @@ def test_list_malformed_file_in_errors(tmp_path: Path) -> None:
     assert items == []
     assert len(errors) == 1
     assert errors[0]["id"] == "bad"
+
+
+# ---------------------------------------------------------------------------
+# update tool
+# ---------------------------------------------------------------------------
+
+
+def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            # Create with default status "Proposed"
+            await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0007",
+                    "title": "T",
+                    "body": "b",
+                },
+            )
+            # Update status to Accepted
+            result = await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0007",
+                    "status": "Accepted",
+                },
+            )
+        data = result.data
+        assert data["attributes"]["status"] == "Accepted"
+        # title and other attributes survive
+        assert data["attributes"]["title"] == "T"
+
+    asyncio.run(go())
+
+
+def test_update_invalid_status_raises_tool_error(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0007",
+                    "title": "T",
+                    "body": "b",
+                },
+            )
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0007",
+                    "status": "Bogus",
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_update_missing_id_raises_tool_error(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-9999",
+                    "status": "Accepted",
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
