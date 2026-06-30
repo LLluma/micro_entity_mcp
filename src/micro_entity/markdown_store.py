@@ -6,8 +6,14 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from micro_entity.codec import entity_to_parts, serialize_document
+from micro_entity.codec import (
+    entity_from_parts,
+    entity_to_parts,
+    parse_document,
+    serialize_document,
+)
 from micro_entity.entity import Entity
+from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
 
 
@@ -58,6 +64,23 @@ class MarkdownStore:
         except BaseException:
             os.unlink(tmp_path)
             raise
+
+    def get(self, id: str) -> Entity:
+        """Load one entity record by id.
+
+        Opens the ``.md`` file for *id*, parses frontmatter + body via the
+        codec, and returns the ``Entity``.  Raises ``NotFoundError`` if the
+        file does not exist.
+
+        Parse errors (malformed frontmatter, missing timestamps, etc.) are
+        propagated unchanged — the store is strict on read.
+        """
+        path = self._path_for(id)
+        if not path.is_file():
+            raise NotFoundError(f"entity not found: {id}")
+        text = path.read_text(encoding="utf-8")
+        fm, body = parse_document(text)
+        return entity_from_parts(id, fm, body)
 
     def create(
         self,

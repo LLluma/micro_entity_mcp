@@ -7,6 +7,12 @@ from micro_entity.entity import Entity
 from micro_entity.validation import Scalar
 
 
+class NotFoundError(Exception):
+    """Raised when a store lookup finds no record for the requested id."""
+
+    pass
+
+
 @dataclass(frozen=True)
 class LoadError:
     """Error record encountered during store load operations."""

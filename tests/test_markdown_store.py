@@ -165,6 +165,36 @@ class TestAtomicWrite:
         assert len(temp_files) == 0
 
 
+class TestGet:
+    """Tests for MarkdownStore.get."""
+
+    def test_get_returns_entity_from_file(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+
+        store.create(
+            "entity-1",
+            attributes={"title": "Test", "score": 42},
+            body="some content",
+        )
+
+        entity = store.get("entity-1")
+
+        assert entity.id == "entity-1"
+        assert entity.body == "some content"
+        assert entity.attributes["title"] == "Test"
+        assert entity.attributes["score"] == 42
+
+    def test_get_missing_id_raises_not_found_error(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore, NotFoundError
+
+        store = MarkdownStore(tmp_path)
+
+        with pytest.raises(NotFoundError):
+            store.get("ghost")
+
+
 class TestPathFor:
     """Tests for MarkdownStore._path_for."""
 
