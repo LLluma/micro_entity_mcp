@@ -8,6 +8,7 @@ from fastmcp.exceptions import ToolError
 
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import MarkdownStore
+from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
@@ -92,6 +93,14 @@ def build_server(store: MarkdownStore) -> FastMCP:
         new_id = _next_id(store)
         created = store.create(new_id, attributes=attrs, body=body)
         return _entity_to_dict(created)
+
+    @mcp.tool
+    def get(id: str) -> dict:
+        try:
+            entity = store.get(id)
+        except NotFoundError as e:
+            raise ToolError(str(e)) from e
+        return _entity_to_dict(entity)
 
     return mcp
 
