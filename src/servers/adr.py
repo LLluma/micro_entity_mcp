@@ -54,7 +54,10 @@ def _normalize_frontmatter(fm: dict) -> dict:
     if isinstance(raw_date, (datetime, date_cls)):
         ts = datetime(raw_date.year, raw_date.month, raw_date.day, tzinfo=UTC)
     elif isinstance(raw_date, str):
-        parsed = date_cls.fromisoformat(raw_date[:10])
+        try:
+            parsed = date_cls.fromisoformat(raw_date[:10])
+        except ValueError:
+            return fm
         ts = datetime(parsed.year, parsed.month, parsed.day, tzinfo=UTC)
     else:
         return fm
@@ -150,7 +153,7 @@ def build_server(store: MarkdownStore) -> FastMCP:
             raise ToolError(f"decision not found: {id}")
         try:
             entity = store.get(id, normalize=_adr_normalize)
-        except FormError as e:
+        except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
         return _entity_to_dict(entity)

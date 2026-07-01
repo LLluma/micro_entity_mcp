@@ -275,6 +275,24 @@ def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:
     assert r.is_error is True
 
 
+def test_get_malformed_legacy_date_raises_tool_error(tmp_path: Path) -> None:
+    (tmp_path / "ADR-0099.md").write_text(
+        "---\nstatus: Accepted\ndate: not-a-real-date\ntitle: Bad\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "get",
+                {"id": "ADR-0099"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
 # ---------------------------------------------------------------------------
 # list tool  (_load_all_migrated)
 # ---------------------------------------------------------------------------
