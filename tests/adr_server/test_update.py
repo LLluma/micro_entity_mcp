@@ -1,5 +1,4 @@
 import asyncio
-import shutil
 from pathlib import Path
 
 import pytest
@@ -8,7 +7,7 @@ from fastmcp import Client
 from micro_entity.codec import parse_document
 from micro_entity.partition import StoreProvider
 from servers.adr import build_server
-from tests.adr_server.conftest import _client
+from tests.adr_server.conftest import _client, write_legacy_adrs
 
 
 def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -> None:
@@ -102,10 +101,7 @@ def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -
 
 def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(
-        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
-        adr_dir / "seg",
-    )
+    write_legacy_adrs(adr_dir / "seg", {"ADR-0001"})
     provider = StoreProvider(adr_dir, "seg")
 
     async def go():
@@ -126,10 +122,7 @@ def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
 
 def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(
-        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
-        adr_dir / "seg",
-    )
+    (adr_dir / "seg").mkdir(parents=True)
     provider = StoreProvider(adr_dir, "seg")
 
     async def go():
@@ -180,10 +173,7 @@ def test_update_malformed_legacy_date_raises_tool_error(tmp_path: Path) -> None:
 
 def test_supersede_legacy_records_succeeds(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(
-        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
-        adr_dir / "seg",
-    )
+    write_legacy_adrs(adr_dir / "seg", {"ADR-0001", "ADR-0002"})
     provider = StoreProvider(adr_dir, "seg")
 
     async def go():

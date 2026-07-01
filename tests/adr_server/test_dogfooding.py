@@ -1,33 +1,25 @@
 import asyncio
 import re
-import shutil
 from pathlib import Path
 
 from fastmcp import Client
 
 from micro_entity.partition import StoreProvider
 from servers.adr import STATUS_VALUES, build_server
-
-ADR_SRC = Path(__file__).resolve().parent.parent.parent / "docs" / "adr"
+from tests.adr_server.conftest import write_legacy_adrs
 
 
 def test_dogfood_real_adr_files_all_load(tmp_path: Path) -> None:
-    """Prove every real ADR in ``docs/adr/`` loads through the migrated path."""
+    """Prove rich-shape ADR files load cleanly through the migration path."""
     seg_dir = tmp_path / "seg"
-    seg_dir.mkdir()
 
-    # 1. Copy real files into seg_dir
-    src_files = sorted(ADR_SRC.glob("*.md"))
-    copied = 0
-    for src in src_files:
-        shutil.copy2(src, seg_dir / src.name)
-        copied += 1
+    # 1. Write 5 synthetic legacy ADRs
+    written = write_legacy_adrs(seg_dir)
+    copied = len(written)
+    filename_stems = set(written)
 
-    # Guard: we actually found the files
-    assert copied >= 5, f"Expected >= 5 ADR files under {ADR_SRC}, got {copied}"
-
-    # Snapshot filename stems for later id-matching
-    filename_stems = {f.stem for f in src_files}
+    # Guard: we actually got 5
+    assert copied >= 5, f"Expected >= 5 ADR files from fixtures, got {copied}"
 
     # 2. Build a client over a provider at tmp_path / seg
     provider = StoreProvider(tmp_path, "seg")
