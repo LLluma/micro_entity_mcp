@@ -25,9 +25,13 @@ class MarkdownStore:
         self,
         directory: Path,
         *,
+        segment: str | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
-        self._directory = Path(directory).resolve()
+        resolved = Path(directory).resolve()
+        if segment:
+            resolved = resolved / segment
+        self._directory = resolved
         self._clock = clock
         self._directory.mkdir(parents=True, exist_ok=True)
 
