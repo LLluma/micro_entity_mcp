@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastmcp import Client
 
-from micro_entity.markdown_store import MarkdownStore
+from micro_entity.partition import StoreProvider
 from servers.adr import STATUS_VALUES, build_server
 
 ADR_SRC = Path(__file__).resolve().parent.parent.parent / "docs" / "adr"
@@ -13,11 +13,14 @@ ADR_SRC = Path(__file__).resolve().parent.parent.parent / "docs" / "adr"
 
 def test_dogfood_real_adr_files_all_load(tmp_path: Path) -> None:
     """Prove every real ADR in ``docs/adr/`` loads through the migrated path."""
-    # 1. Copy real files into tmp_path
+    seg_dir = tmp_path / "seg"
+    seg_dir.mkdir()
+
+    # 1. Copy real files into seg_dir
     src_files = sorted(ADR_SRC.glob("*.md"))
     copied = 0
     for src in src_files:
-        shutil.copy2(src, tmp_path / src.name)
+        shutil.copy2(src, seg_dir / src.name)
         copied += 1
 
     # Guard: we actually found the files
@@ -26,9 +29,9 @@ def test_dogfood_real_adr_files_all_load(tmp_path: Path) -> None:
     # Snapshot filename stems for later id-matching
     filename_stems = {f.stem for f in src_files}
 
-    # 2. Build a client over a store at tmp_path
-    store = MarkdownStore(tmp_path)
-    client = Client(build_server(store))
+    # 2. Build a client over a provider at tmp_path / seg
+    provider = StoreProvider(tmp_path, "seg")
+    client = Client(build_server(provider))
 
     # 3. Call the list tool
     async def go():

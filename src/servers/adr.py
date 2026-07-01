@@ -12,6 +12,7 @@ from fastmcp.exceptions import ToolError
 from micro_entity.codec import CommentedMap
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.partition import StoreProvider, UnresolvedSegmentError
 from micro_entity.query import query as query_entities
 from micro_entity.validation import FormError, validate_against_set
 
@@ -102,11 +103,27 @@ def _entity_matches_text(entity: Entity, needle: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Store resolution helper (mirrors todo.py)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_store(
+    provider: StoreProvider,
+    project: str | None,
+) -> MarkdownStore:
+    """Resolve the store for a tool call; raise ToolError on failure."""
+    try:
+        return provider.get(project)
+    except UnresolvedSegmentError as e:
+        raise ToolError(str(e)) from e
+
+
+# ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
 
 
-def build_server(store: MarkdownStore) -> FastMCP:
+def build_server(provider: StoreProvider) -> FastMCP:
     """Build the FastMCP server for the ADR profile.
 
     All tools are registered inside this function so tests can inject a
@@ -124,7 +141,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
         title: str,
         body: str,
         attributes: dict | None = None,
+        project: str | None = None,
     ) -> dict:
+        store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
         if bad:
@@ -148,7 +167,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(entity)
 
     @mcp.tool
-    def get(id: str) -> dict:
+    def get(id: str, project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         if not store.exists(id):
             raise ToolError(f"decision not found: {id}")
         try:
@@ -159,7 +179,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(entity)
 
     @mcp.tool(name="list")
-    def list_decisions() -> dict:
+    def list_decisions(project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         entities, errors = store.load_all(normalize=_adr_normalize)
         return {
             "items": [_entity_to_dict(e) for e in entities],
@@ -172,7 +193,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
         status: str | None = None,
         body: str | None = None,
         attributes: dict | None = None,
+        project: str | None = None,
     ) -> dict:
+        store = _resolve_store(provider, project)
         patch: dict = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & patch.keys()
         if bad:
@@ -199,7 +222,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(updated)
 
     @mcp.tool
-    def supersede(old_id: str, new_id: str) -> dict:
+    def supersede(old_id: str, new_id: str, project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         for ident in (old_id, new_id):
             try:
                 exists = store.exists(ident)
@@ -228,13 +252,21 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
 
     @mcp.tool
-    def query(criteria: dict[str, list] | None = None) -> dict:
+    def query(
+        criteria: dict[str, list] | None = None,
+        project: str | None = None,
+    ) -> dict:
+        store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
 
     @mcp.tool
-    def search(text: str) -> dict:
+    def search(
+        text: str,
+        project: str | None = None,
+    ) -> dict:
+        store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = [e for e in entities if _entity_matches_text(e, text)]
         return {"items": [_entity_to_dict(e) for e in matched]}
@@ -247,7 +279,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
 # ---------------------------------------------------------------------------
 
 ADR_DIR = os.environ.get("ADR_DIR", str(Path.home() / ".micro_entity_adr"))
-mcp = build_server(MarkdownStore(Path(ADR_DIR)))
+_provider = StoreProvider(Path(ADR_DIR), None)
+mcp = build_server(_provider)
 
 if __name__ == "__main__":
     mcp.run()

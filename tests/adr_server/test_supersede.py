@@ -102,7 +102,7 @@ def test_supersede_rolls_back_old_on_second_write_failure(
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
 
-            old_path = tmp_path / "ADR-0007.md"
+            old_path = tmp_path / "seg" / "ADR-0007.md"
             before = old_path.read_text(encoding="utf-8")
             real_update = adr_mod.MarkdownStore.update
 
@@ -142,7 +142,7 @@ def test_supersede_missing_old_leaves_new_untouched(tmp_path: Path) -> None:
                 "add",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
-            new_path = tmp_path / "ADR-0008.md"
+            new_path = tmp_path / "seg" / "ADR-0008.md"
             before = new_path.read_text(encoding="utf-8")
             result = await c.call_tool(
                 "supersede",

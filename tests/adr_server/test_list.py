@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastmcp import Client
 
-from micro_entity.markdown_store import MarkdownStore
+from micro_entity.partition import StoreProvider
 from servers.adr import build_server
 from tests.adr_server.conftest import _client
 
@@ -46,12 +46,14 @@ def test_list_migrates_legacy_record(tmp_path: Path) -> None:
         "status: Accepted\ndate: 2026-06-29\n"
         "---\nLegacy body\n"
     )
-    (tmp_path / "ADR-0200.md").write_text(legacy_text, encoding="utf-8")
+    seg_dir = tmp_path / "seg"
+    seg_dir.mkdir()
+    (seg_dir / "ADR-0200.md").write_text(legacy_text, encoding="utf-8")
 
-    store = MarkdownStore(tmp_path)
+    provider = StoreProvider(tmp_path, "seg")
 
     async def go():
-        async with Client(build_server(store)) as c:
+        async with Client(build_server(provider)) as c:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
@@ -64,12 +66,14 @@ def test_list_migrates_legacy_record(tmp_path: Path) -> None:
 
 
 def test_list_malformed_file_in_errors(tmp_path: Path) -> None:
-    (tmp_path / "bad.md").write_text("not a valid document\n", encoding="utf-8")
+    seg_dir = tmp_path / "seg"
+    seg_dir.mkdir()
+    (seg_dir / "bad.md").write_text("not a valid document\n", encoding="utf-8")
 
-    store = MarkdownStore(tmp_path)
+    provider = StoreProvider(tmp_path, "seg")
 
     async def go():
-        async with Client(build_server(store)) as c:
+        async with Client(build_server(provider)) as c:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())

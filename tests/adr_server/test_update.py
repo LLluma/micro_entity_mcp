@@ -6,7 +6,7 @@ import pytest
 from fastmcp import Client
 
 from micro_entity.codec import parse_document
-from micro_entity.markdown_store import MarkdownStore
+from micro_entity.partition import StoreProvider
 from servers.adr import build_server
 from tests.adr_server.conftest import _client
 
@@ -102,11 +102,14 @@ def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -
 
 def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
-    store = MarkdownStore(adr_dir)
+    shutil.copytree(
+        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
+        adr_dir / "seg",
+    )
+    provider = StoreProvider(adr_dir, "seg")
 
     async def go():
-        async with Client(build_server(store)) as c:
+        async with Client(build_server(provider)) as c:
             return await c.call_tool(
                 "update",
                 {"id": "ADR-0001", "status": "Superseded"},
@@ -115,7 +118,7 @@ def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
     r = asyncio.run(go())
     assert r.data["attributes"]["status"] == "Superseded"
 
-    fm, _ = parse_document((adr_dir / "ADR-0001.md").read_text(encoding="utf-8"))
+    fm, _ = parse_document((adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8"))
     assert "date" not in fm
     assert str(fm["created"]) == "2026-06-29 00:00:00+00:00"
     assert fm["updated"] != fm["created"]
@@ -123,22 +126,27 @@ def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
 
 def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
-    store = MarkdownStore(adr_dir)
+    shutil.copytree(
+        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
+        adr_dir / "seg",
+    )
+    provider = StoreProvider(adr_dir, "seg")
 
     async def go():
-        async with Client(build_server(store)) as c:
+        async with Client(build_server(provider)) as c:
             await c.call_tool(
                 "add",
                 {"id": "ADR-0101", "title": "Fresh", "body": "body"},
             )
-            before = (adr_dir / "ADR-0101.md").read_text(encoding="utf-8")
+            before = (adr_dir / "seg" / "ADR-0101.md").read_text(encoding="utf-8")
             before_fm, _ = parse_document(before)
             result = await c.call_tool(
                 "update",
                 {"id": "ADR-0101", "status": "Accepted"},
             )
-            after_fm, _ = parse_document((adr_dir / "ADR-0101.md").read_text(encoding="utf-8"))
+            after_fm, _ = parse_document(
+                (adr_dir / "seg" / "ADR-0101.md").read_text(encoding="utf-8")
+            )
             return before_fm, after_fm, result
 
     before_fm, after_fm, result = asyncio.run(go())
@@ -149,11 +157,14 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
 
 def test_supersede_legacy_records_succeeds(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
-    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
-    store = MarkdownStore(adr_dir)
+    shutil.copytree(
+        Path(__file__).resolve().parent.parent.parent / "docs" / "adr",
+        adr_dir / "seg",
+    )
+    provider = StoreProvider(adr_dir, "seg")
 
     async def go():
-        async with Client(build_server(store)) as c:
+        async with Client(build_server(provider)) as c:
             return await c.call_tool(
                 "supersede",
                 {"old_id": "ADR-0001", "new_id": "ADR-0002"},

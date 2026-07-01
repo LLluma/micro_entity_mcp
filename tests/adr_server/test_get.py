@@ -26,7 +26,9 @@ def test_get_returns_added_entity(tmp_path: Path) -> None:
 
 def test_get_legacy_migration(tmp_path: Path) -> None:
     # Write a legacy record (only ``date``, no created/updated)
-    (tmp_path / "ADR-0100.md").write_text(
+    seg_dir = tmp_path / "seg"
+    seg_dir.mkdir()
+    (seg_dir / "ADR-0100.md").write_text(
         "---\nid: ADR-0100\ntitle: Legacy\nstatus: Accepted\ndate: 2026-06-29\n---\nLegacy body\n",
         encoding="utf-8",
     )
@@ -57,7 +59,9 @@ def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:
 
 
 def test_get_malformed_legacy_date_raises_tool_error(tmp_path: Path) -> None:
-    (tmp_path / "ADR-0099.md").write_text(
+    seg_dir = tmp_path / "seg"
+    seg_dir.mkdir()
+    (seg_dir / "ADR-0099.md").write_text(
         "---\nstatus: Accepted\ndate: not-a-real-date\ntitle: Bad\n---\nbody\n",
         encoding="utf-8",
     )
