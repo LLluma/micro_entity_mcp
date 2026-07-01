@@ -96,6 +96,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def health() -> dict:
+        """Health check; returns "ok" and the allowed status values
+        (todo, in-progress, done, blocked)."""
         return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
 
     @mcp.tool
@@ -104,6 +106,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
         attributes: dict | None = None,
         project: str | None = None,
     ) -> dict:
+        """Create a todo with the given body; auto-assigns id and order
+        and defaults status to "todo".  `attributes` adds extra fields
+        (reserved keys id/created/updated are rejected); `project` selects
+        the per-project partition (defaults to the workspace)."""
         store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
@@ -122,6 +128,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def get(id: str, project: str | None = None) -> dict:
+        """Fetch one todo entity by id. `project` selects the partition."""
         store = _resolve_store(provider, project)
         try:
             entity = store.get(id)
@@ -131,6 +138,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool(name="list")
     def list_items(project: str | None = None) -> dict:
+        """List all todos in the partition, plus any load errors.
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, errors = store.load_all()
         return {
@@ -143,6 +152,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         criteria: dict[str, list] | None = None,
         project: str | None = None,
     ) -> dict:
+        """Return todos whose attributes match `criteria`
+        (within-attribute OR, across-attribute AND).
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         matched = query_entities(entities, criteria or {})
@@ -156,6 +168,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         body: str | None = None,
         project: str | None = None,
     ) -> dict:
+        """Update a todo's status, order, and/or body by id;
+        other fields are preserved. `project` selects the partition."""
         store = _resolve_store(provider, project)
         attributes: dict = {}
         if status is not None:
@@ -179,6 +193,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def delete(id: str, project: str | None = None) -> dict:
+        """Delete a todo entity by id. `project` selects the partition."""
         store = _resolve_store(provider, project)
         try:
             store.delete(id)
@@ -188,6 +203,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool(name="next")
     def next_tool(project: str | None = None) -> dict | None:
+        """Return the first actionable todo (status todo or in-progress,
+        lowest order), or null if none. `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         actionable = [
@@ -208,12 +225,15 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def clear(project: str | None = None) -> dict:
+        """Delete all todos in the partition. `project` selects the partition."""
         store = _resolve_store(provider, project)
         store.clear()
         return {"cleared": True}
 
     @mcp.tool
     def is_complete(project: str | None = None) -> bool:
+        """True when no todo is still open (todo/in-progress/blocked).
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         return not any(

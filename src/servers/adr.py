@@ -137,6 +137,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def health() -> dict:
+        """Health check; returns "ok" and the allowed status values
+        (Proposed, Accepted, Superseded)."""
         return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
 
     @mcp.tool
@@ -147,6 +149,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
         attributes: dict | None = None,
         project: str | None = None,
     ) -> dict:
+        """Create an ADR with id, title, and body; default status
+        "Proposed".  `attributes` adds frontmatter fields (reserved
+        keys id/created/updated are rejected); `project` selects the
+        per-project partition (defaults to the workspace)."""
         store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
@@ -172,6 +178,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def get(id: str, project: str | None = None) -> dict:
+        """Fetch one ADR by id, migrating legacy date-only records.
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         if not store.exists(id):
             raise ToolError(f"decision not found: {id}")
@@ -184,6 +192,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool(name="list")
     def list_decisions(project: str | None = None) -> dict:
+        """List all ADRs in the partition; malformed records are quarantined
+        into `errors`. `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, errors = store.load_all(normalize=_adr_normalize)
         return {
@@ -199,6 +209,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         attributes: dict | None = None,
         project: str | None = None,
     ) -> dict:
+        """Update an ADR's status, body, and/or attributes by id.
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         patch: dict = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & patch.keys()
@@ -227,6 +239,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def supersede(old_id: str, new_id: str, project: str | None = None) -> dict:
+        """Mark old_id Superseded (superseded_by=new_id) and record new_id
+        as superseding it; atomic with rollback on failure.
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         for ident in (old_id, new_id):
             try:
@@ -263,6 +278,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         criteria: dict[str, list] | None = None,
         project: str | None = None,
     ) -> dict:
+        """Return ADRs whose attributes match `criteria`
+        (within-attribute OR, across-attribute AND).
+        `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = query_entities(entities, criteria or {})
@@ -273,6 +291,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         text: str,
         project: str | None = None,
     ) -> dict:
+        """Case-insensitive full-text search over ADR body and
+        attributes. `project` selects the partition."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = [e for e in entities if _entity_matches_text(e, text)]
