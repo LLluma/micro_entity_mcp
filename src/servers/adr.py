@@ -12,7 +12,11 @@ from fastmcp.exceptions import ToolError
 from micro_entity.codec import CommentedMap
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
-from micro_entity.partition import StoreProvider, UnresolvedSegmentError
+from micro_entity.partition import (
+    StoreProvider,
+    UnresolvedSegmentError,
+    resolve_segment,
+)
 from micro_entity.query import query as query_entities
 from micro_entity.validation import FormError, validate_against_set
 
@@ -279,7 +283,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
 # ---------------------------------------------------------------------------
 
 ADR_DIR = os.environ.get("ADR_DIR", str(Path.home() / ".micro_entity_adr"))
-_provider = StoreProvider(Path(ADR_DIR), None)
+_provider = StoreProvider(
+    Path(ADR_DIR),
+    resolve_segment(explicit=None, workspace=os.getcwd()),
+)
 mcp = build_server(_provider)
 
 if __name__ == "__main__":

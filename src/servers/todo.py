@@ -8,7 +8,11 @@ from fastmcp.exceptions import ToolError
 
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
-from micro_entity.partition import StoreProvider, UnresolvedSegmentError
+from micro_entity.partition import (
+    StoreProvider,
+    UnresolvedSegmentError,
+    resolve_segment,
+)
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
@@ -224,7 +228,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
 # ---------------------------------------------------------------------------
 
 TODO_DIR = os.environ.get("TODO_DIR", str(Path.home() / ".micro_entity_todo"))
-_provider = StoreProvider(Path(TODO_DIR), None)
+_provider = StoreProvider(
+    Path(TODO_DIR),
+    resolve_segment(explicit=None, workspace=os.getcwd()),
+)
 mcp = build_server(_provider)
 
 if __name__ == "__main__":
