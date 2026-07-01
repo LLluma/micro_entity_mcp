@@ -613,14 +613,20 @@ def test_supersede_rolls_back_old_on_second_write_failure(
 
             old_path = tmp_path / "ADR-0007.md"
             before = old_path.read_text(encoding="utf-8")
-            real_update = adr_mod._update_migrated
+            real_update = adr_mod.MarkdownStore.update
 
-            def wrapper(store, ident, *, attributes=None, body=adr_mod.UNSET):
+            def wrapper(store, ident, *, attributes=None, body=adr_mod.UNSET, normalize=None):
                 if ident == "ADR-0008":
                     raise RuntimeError("boom")
-                return real_update(store, ident, attributes=attributes, body=body)
+                return real_update(
+                    store,
+                    ident,
+                    attributes=attributes,
+                    body=body,
+                    normalize=normalize,
+                )
 
-            monkeypatch.setattr(adr_mod, "_update_migrated", wrapper)
+            monkeypatch.setattr(adr_mod.MarkdownStore, "update", wrapper)
 
             result = await c.call_tool(
                 "supersede",

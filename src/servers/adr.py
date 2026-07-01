@@ -9,12 +9,11 @@ from typing import cast
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
-from micro_entity.codec import CommentedMap, entity_from_parts, parse_document, serialize_document
+from micro_entity.codec import CommentedMap
 from micro_entity.entity import Entity
-from micro_entity.markdown_store import UNSET, MarkdownStore, UnsetType
+from micro_entity.markdown_store import UNSET, MarkdownStore
 from micro_entity.query import query as query_entities
-from micro_entity.store import LoadError, NotFoundError
-from micro_entity.validation import FormError, validate_against_set, validate_attribute_value
+from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -68,96 +67,16 @@ def _normalize_frontmatter(fm: dict) -> dict:
     return fm
 
 
-def _get_migrated(store: MarkdownStore, id: str) -> Entity:
-    """Read one record, migrating legacy timestamps, and return the Entity.
-
-    Raises ``NotFoundError`` if the file does not exist.
-    """
-    path = store._path_for(id)
-    if not path.is_file():
-        raise NotFoundError(f"decision not found: {id}")
-    fm, body = parse_document(path.read_text(encoding="utf-8"))
-    fm = _normalize_frontmatter(fm)
-
-    # Drop the legacy ``date`` key so it doesn't pollute entity attributes
+def _adr_normalize(fm: CommentedMap) -> CommentedMap:
+    """ADR-profile frontmatter migration passed into the store's normalize hook."""
+    fm = cast(CommentedMap, _normalize_frontmatter(fm))
     fm.pop("date", None)
-
-    return entity_from_parts(id, fm, body)
-
-
-def _update_migrated(
-    store: MarkdownStore,
-    id: str,
-    *,
-    attributes: dict | None = None,
-    body: str | None | UnsetType = UNSET,
-) -> Entity:
-    # Deliberate copy of store.update flow; ADR profile injects legacy timestamp migration here.
-    path = store._path_for(id)
-    if not path.is_file():
-        raise NotFoundError(f"entity not found: {id}")
-
-    text = path.read_text(encoding="utf-8")
-    fm, existing_body = parse_document(text)
-    fm = _normalize_frontmatter(fm)
-    fm.pop("date", None)
-
-    if attributes is not None:
-        for val in attributes.values():
-            validate_attribute_value(val)
-        for k, v in attributes.items():
-            fm[k] = v
-
-    fm["updated"] = store._clock().isoformat()
-
-    new_body: str | None
-    if body is UNSET:
-        new_body = existing_body
-    else:
-        assert isinstance(body, (str, type(None)))
-        new_body = body
-
-    document = serialize_document(cast(CommentedMap, fm), new_body)
-    store._atomic_write(path, document)
-    return entity_from_parts(id, fm, new_body)
+    return fm
 
 
 def _entity_to_dict(entity: Entity) -> dict:
     """Convert an Entity to a JSON-safe dict (timestamps as ISO strings)."""
     return entity.model_dump(mode="json")
-
-
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-
-def _load_all_migrated(
-    store: MarkdownStore,
-) -> tuple[list[Entity], list[LoadError]]:
-    """Load every record in the partition, migrating legacy timestamps.
-
-    Each ``.md`` file that parses/validates (after migration) becomes an Entity;
-    each that fails becomes a ``LoadError(id=<stem>, reason=<message>)``.
-    Entities are returned sorted by id. Never raises on a single bad record.
-    Returns ``([], [])`` when the directory is absent.
-    """
-    if not store._directory.is_dir():
-        return ([], [])
-
-    entities: list[Entity] = []
-    errors: list[LoadError] = []
-
-    for path in sorted(store._directory.glob("*.md")):
-        stem = path.stem
-        try:
-            entity = _get_migrated(store, stem)
-            entities.append(entity)
-        except Exception as exc:
-            errors.append(LoadError(id=stem, reason=str(exc)))
-
-    entities.sort(key=lambda e: e.id)
-    return (entities, errors)
 
 
 def _entity_matches_text(entity: Entity, needle: str) -> bool:
@@ -227,10 +146,10 @@ def build_server(store: MarkdownStore) -> FastMCP:
 
     @mcp.tool
     def get(id: str) -> dict:
+        if not store.exists(id):
+            raise ToolError(f"decision not found: {id}")
         try:
-            entity = _get_migrated(store, id)
-        except NotFoundError as e:
-            raise ToolError(str(e)) from None
+            entity = store.get(id, normalize=_adr_normalize)
         except FormError as e:
             raise ToolError(str(e)) from e
 
@@ -238,7 +157,7 @@ def build_server(store: MarkdownStore) -> FastMCP:
 
     @mcp.tool(name="list")
     def list_decisions() -> dict:
-        entities, errors = _load_all_migrated(store)
+        entities, errors = store.load_all(normalize=_adr_normalize)
         return {
             "items": [_entity_to_dict(e) for e in entities],
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
@@ -265,9 +184,12 @@ def build_server(store: MarkdownStore) -> FastMCP:
         body_arg = body if body is not None else UNSET
 
         try:
-            updated = _update_migrated(store, id, attributes=(patch or None), body=body_arg)
-        except NotFoundError as e:
-            raise ToolError(str(e)) from e
+            updated = store.update(
+                id,
+                attributes=(patch or None),
+                body=body_arg,
+                normalize=_adr_normalize,
+            )
         except FormError as e:
             raise ToolError(str(e)) from e
 
@@ -277,41 +199,40 @@ def build_server(store: MarkdownStore) -> FastMCP:
     def supersede(old_id: str, new_id: str) -> dict:
         for ident in (old_id, new_id):
             try:
-                path = store._path_for(ident)
+                exists = store.exists(ident)
             except FormError as e:
                 raise ToolError(str(e)) from None
-            if not path.is_file():
+            if not exists:
                 raise ToolError(f"decision not found: {ident}")
 
-        old_path = store._path_for(old_id)
-        old_original_text = old_path.read_text(encoding="utf-8")
+        old_original_text = store.path_for(old_id).read_text(encoding="utf-8")
 
-        old = _update_migrated(
-            store,
+        old = store.update(
             old_id,
             attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
+            normalize=_adr_normalize,
         )
         try:
-            new = _update_migrated(
-                store,
+            new = store.update(
                 new_id,
                 attributes={SUPERSEDES_KEY: old_id},
+                normalize=_adr_normalize,
             )
         except Exception as exc:
-            store._atomic_write(old_path, old_original_text)
+            store.atomic_write(store.path_for(old_id), old_original_text)
             raise ToolError(str(exc)) from exc
 
         return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
 
     @mcp.tool
     def query(criteria: dict[str, list] | None = None) -> dict:
-        entities, _ = _load_all_migrated(store)
+        entities, _ = store.load_all(normalize=_adr_normalize)
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
 
     @mcp.tool
     def search(text: str) -> dict:
-        entities, _ = _load_all_migrated(store)
+        entities, _ = store.load_all(normalize=_adr_normalize)
         matched = [e for e in entities if _entity_matches_text(e, text)]
         return {"items": [_entity_to_dict(e) for e in matched]}
 
