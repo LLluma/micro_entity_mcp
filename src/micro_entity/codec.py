@@ -136,7 +136,7 @@ def serialize_document(frontmatter: CommentedMap, body: str | None) -> str:
 
     if body is None:
         # Frontmatter only — no body region at all
-        return f"---\n{yaml_lines}\n---"
+        return f"---\n{yaml_lines}\n---\n"
     else:
         # body is "" → ending "---\n" then body (empty)
         # body is "..." → ending "---\n" then body verbatim

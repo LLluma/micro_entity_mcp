@@ -136,11 +136,13 @@ class TestSerializeDocument:
         result = serialize_document(fm, body)
         assert result == text
 
-    def test_body_none_no_trailing_newline(self):
-        """body=None → ends with ---, no trailing newline."""
+    def test_body_none_trailing_newline_once(self):
+        """body=None → ends with exactly one trailing newline."""
         fm, _ = parse_document("---\nname: test\n---")
         result = serialize_document(fm, None)
-        assert result == "---\nname: test\n---"
+        assert result == "---\nname: test\n---\n"
+        assert result.endswith("\n")
+        assert not result.endswith("\n\n")
 
     def test_body_empty_string_trailing_newline(self):
         """body='' → ends with ---\\n (empty body region exists)."""
@@ -483,6 +485,8 @@ class TestEntityToParts:
         fm2, body2 = parse_document(doc)
         reconstructed = entity_from_parts("myfile", fm2, body2)
 
+        assert doc.endswith("\n")
+        assert not doc.endswith("\n\n")
         assert reconstructed.body is None
         assert reconstructed.attributes == entity.attributes
 
