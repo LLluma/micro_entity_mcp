@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from micro_entity.codec import (
+    CommentedMap,
     entity_from_parts,
     entity_to_parts,
     parse_document,
@@ -65,7 +66,21 @@ class MarkdownStore:
             os.unlink(tmp_path)
             raise
 
-    def get(self, id: str) -> Entity:
+    def exists(self, id: str) -> bool:
+        return self._path_for(id).is_file()
+
+    def path_for(self, id: str) -> Path:
+        return self._path_for(id)
+
+    def atomic_write(self, path: Path, text: str) -> None:
+        self._atomic_write(path, text)
+
+    def get(
+        self,
+        id: str,
+        *,
+        normalize: Callable[[CommentedMap], CommentedMap] | None = None,
+    ) -> Entity:
         """Load one entity record by id.
 
         Opens the ``.md`` file for *id*, parses frontmatter + body via the
@@ -80,6 +95,8 @@ class MarkdownStore:
             raise NotFoundError(f"entity not found: {id}")
         text = path.read_text(encoding="utf-8")
         fm, body = parse_document(text)
+        if normalize is not None:
+            fm = normalize(fm)
         return entity_from_parts(id, fm, body)
 
     def create(
@@ -126,6 +143,7 @@ class MarkdownStore:
         *,
         attributes: dict[str, Scalar | list[Scalar]] | None = None,
         body: str | None | UnsetType = UNSET,
+        normalize: Callable[[CommentedMap], CommentedMap] | None = None,
     ) -> Entity:
         """Patch an existing entity record.
 
@@ -147,6 +165,8 @@ class MarkdownStore:
 
         text = path.read_text(encoding="utf-8")
         fm, existing_body = parse_document(text)
+        if normalize is not None:
+            fm = normalize(fm)
 
         # Validate ALL provided attribute values before touching the filesystem.
         if attributes is not None:
@@ -168,7 +188,11 @@ class MarkdownStore:
         self._atomic_write(path, document)
         return entity_from_parts(id, fm, new_body)
 
-    def load_all(self) -> tuple[list[Entity], list[LoadError]]:
+    def load_all(
+        self,
+        *,
+        normalize: Callable[[CommentedMap], CommentedMap] | None = None,
+    ) -> tuple[list[Entity], list[LoadError]]:
         """Load every ``.md`` record in the directory.
 
         Valid records become ``Entity`` instances, sorted by id.
@@ -185,7 +209,7 @@ class MarkdownStore:
         for path in sorted(self._directory.glob("*.md")):
             stem = path.stem
             try:
-                entity = self.get(stem)
+                entity = self.get(stem, normalize=normalize)
                 entities.append(entity)
             except Exception as exc:
                 errors.append(LoadError(id=stem, reason=str(exc)))

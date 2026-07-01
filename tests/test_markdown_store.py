@@ -148,6 +148,15 @@ class TestAtomicWrite:
         store._atomic_write(target, text)
         assert target.read_text(encoding="utf-8") == text
 
+    def test_atomic_write_public_wrapper_writes_exact_content(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        target = store.path_for("record")
+        store.atomic_write(target, "hello world\n")
+
+        assert target.read_text(encoding="utf-8") == "hello world\n"
+
     def test_atomic_write_overwrites_atomically_no_temp_left(self, tmp_path: Path) -> None:
         from micro_entity.markdown_store import MarkdownStore
 
@@ -194,6 +203,30 @@ class TestGet:
         with pytest.raises(NotFoundError):
             store.get("ghost")
 
+    def test_get_applies_normalize_hook_to_frontmatter(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        store.create("entity-1", attributes={"title": "Test"})
+
+        def normalize(fm):
+            fm["extra"] = "x"
+            return fm
+
+        entity = store.get("entity-1", normalize=normalize)
+
+        assert entity.attributes["extra"] == "x"
+
+    def test_get_without_normalize_keeps_frontmatter_unchanged(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        store.create("entity-2", attributes={"title": "Test"})
+
+        entity = store.get("entity-2")
+
+        assert "extra" not in entity.attributes
+
 
 class TestPathFor:
     """Tests for MarkdownStore._path_for."""
@@ -202,7 +235,7 @@ class TestPathFor:
         from micro_entity.markdown_store import MarkdownStore
 
         store = MarkdownStore(tmp_path)
-        result = store._path_for("ADR-0007")
+        result = store.path_for("ADR-0007")
         assert result == tmp_path / "ADR-0007.md"
 
     def test_path_for_rejects_invalid_id(self, tmp_path: Path) -> None:
@@ -211,11 +244,30 @@ class TestPathFor:
 
         store = MarkdownStore(tmp_path)
         with pytest.raises(FormError):
-            store._path_for("../etc/passwd")
+            store.path_for("../etc/passwd")
         with pytest.raises(FormError):
-            store._path_for("A" * 201)
+            store.path_for("A" * 201)
         with pytest.raises(FormError):
-            store._path_for("")
+            store.path_for("")
+
+
+class TestExists:
+    """Tests for MarkdownStore.exists."""
+
+    def test_exists_returns_true_for_existing_record(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        store.create("present", attributes={})
+
+        assert store.exists("present") is True
+
+    def test_exists_returns_false_for_missing_record(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+
+        assert store.exists("missing") is False
 
     def test_init_creates_missing_directory(self, tmp_path: Path) -> None:
         from micro_entity.markdown_store import MarkdownStore
@@ -293,6 +345,48 @@ class TestUpdateBody:
         # No body region should appear after closing ---
         parts = raw.split("---", 2)
         assert "\n" not in parts[2].strip() or parts[2].strip() == ""
+
+
+class TestUpdateNormalize:
+    """Tests for MarkdownStore.update normalize hook."""
+
+    def test_update_applies_normalize_before_patching(self, tmp_path: Path) -> None:
+        from micro_entity.codec import parse_document
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        store.create("norm", attributes={"title": "Test"}, body="body")
+
+        def normalize(fm):
+            fm["migrated"] = "yes"
+            return fm
+
+        store.update("norm", attributes={"title": "Updated"}, normalize=normalize)
+
+        fm, body = parse_document((tmp_path / "norm.md").read_text(encoding="utf-8"))
+        assert fm["migrated"] == "yes"
+        assert fm["title"] == "Updated"
+        assert body == "body"
+
+
+class TestLoadAllNormalize:
+    """Tests for MarkdownStore.load_all normalize hook."""
+
+    def test_load_all_applies_normalize_to_each_record(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+        store.create("one", attributes={"title": "One"})
+        store.create("two", attributes={"title": "Two"})
+
+        def normalize(fm):
+            fm["loaded"] = True
+            return fm
+
+        entities, errors = store.load_all(normalize=normalize)
+
+        assert errors == []
+        assert [entity.attributes["loaded"] for entity in entities] == [True, True]
 
 
 class TestUpdateCommentPreservation:
