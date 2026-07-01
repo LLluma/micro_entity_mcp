@@ -1,0 +1,165 @@
+import asyncio
+import shutil
+from pathlib import Path
+
+import pytest
+from fastmcp import Client
+
+from micro_entity.codec import parse_document
+from micro_entity.markdown_store import MarkdownStore
+from servers.adr import build_server
+from tests.adr_server.conftest import _client
+
+
+def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            # Create with default status "Proposed"
+            await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0007",
+                    "title": "T",
+                    "body": "b",
+                },
+            )
+            # Update status to Accepted
+            result = await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0007",
+                    "status": "Accepted",
+                },
+            )
+        data = result.data
+        assert data["attributes"]["status"] == "Accepted"
+        # title and other attributes survive
+        assert data["attributes"]["title"] == "T"
+
+    asyncio.run(go())
+
+
+def test_update_invalid_status_raises_tool_error(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0007",
+                    "title": "T",
+                    "body": "b",
+                },
+            )
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0007",
+                    "status": "Bogus",
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_update_missing_id_raises_tool_error(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-9999",
+                    "status": "Accepted",
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+@pytest.mark.parametrize("reserved_key", ["created", "updated", "id"])
+def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "add",
+                {"id": "ADR-0102", "title": "T", "body": "b"},
+            )
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0102",
+                    "attributes": {reserved_key: "x"},
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
+    adr_dir = tmp_path / "adr"
+    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
+    store = MarkdownStore(adr_dir)
+
+    async def go():
+        async with Client(build_server(store)) as c:
+            return await c.call_tool(
+                "update",
+                {"id": "ADR-0001", "status": "Superseded"},
+            )
+
+    r = asyncio.run(go())
+    assert r.data["attributes"]["status"] == "Superseded"
+
+    fm, _ = parse_document((adr_dir / "ADR-0001.md").read_text(encoding="utf-8"))
+    assert "date" not in fm
+    assert str(fm["created"]) == "2026-06-29 00:00:00+00:00"
+    assert fm["updated"] != fm["created"]
+
+
+def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
+    adr_dir = tmp_path / "adr"
+    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
+    store = MarkdownStore(adr_dir)
+
+    async def go():
+        async with Client(build_server(store)) as c:
+            await c.call_tool(
+                "add",
+                {"id": "ADR-0101", "title": "Fresh", "body": "body"},
+            )
+            before = (adr_dir / "ADR-0101.md").read_text(encoding="utf-8")
+            before_fm, _ = parse_document(before)
+            result = await c.call_tool(
+                "update",
+                {"id": "ADR-0101", "status": "Accepted"},
+            )
+            after_fm, _ = parse_document((adr_dir / "ADR-0101.md").read_text(encoding="utf-8"))
+            return before_fm, after_fm, result
+
+    before_fm, after_fm, result = asyncio.run(go())
+    assert result.data["attributes"]["status"] == "Accepted"
+    assert after_fm["created"] == before_fm["created"]
+    assert after_fm["updated"] != before_fm["updated"]
+
+
+def test_supersede_legacy_records_succeeds(tmp_path: Path) -> None:
+    adr_dir = tmp_path / "adr"
+    shutil.copytree(Path(__file__).resolve().parent.parent.parent / "docs" / "adr", adr_dir)
+    store = MarkdownStore(adr_dir)
+
+    async def go():
+        async with Client(build_server(store)) as c:
+            return await c.call_tool(
+                "supersede",
+                {"old_id": "ADR-0001", "new_id": "ADR-0002"},
+            )
+
+    r = asyncio.run(go())
+    assert r.data["superseded"]["attributes"]["status"] == "Superseded"
+    assert r.data["superseded"]["attributes"]["superseded_by"] == "ADR-0002"
+    assert r.data["superseding"]["attributes"]["supersedes"] == "ADR-0001"
