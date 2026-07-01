@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from datetime import date as date_cls
 from pathlib import Path
 
+import pytest
 from fastmcp import Client
 
 from micro_entity.codec import parse_document
@@ -154,6 +155,43 @@ def test_add_invalid_status_raises_tool_error(tmp_path: Path) -> None:
                     "title": "t",
                     "body": "b",
                     "attributes": {"status": "Bogus"},
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_add_rejects_reserved_created_attribute(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0011",
+                    "title": "t",
+                    "body": "b",
+                    "attributes": {"created": "x"},
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+@pytest.mark.parametrize("reserved_key", ["updated", "id"])
+def test_add_rejects_other_reserved_attributes(tmp_path: Path, reserved_key: str) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "add",
+                {
+                    "id": "ADR-0012",
+                    "title": "t",
+                    "body": "b",
+                    "attributes": {reserved_key: "x"},
                 },
                 raise_on_error=False,
             )
@@ -379,6 +417,27 @@ def test_update_missing_id_raises_tool_error(tmp_path: Path) -> None:
                 {
                     "id": "ADR-9999",
                     "status": "Accepted",
+                },
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+@pytest.mark.parametrize("reserved_key", ["created", "updated", "id"])
+def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "add",
+                {"id": "ADR-0102", "title": "T", "body": "b"},
+            )
+            return await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0102",
+                    "attributes": {reserved_key: "x"},
                 },
                 raise_on_error=False,
             )

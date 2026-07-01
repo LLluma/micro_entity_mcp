@@ -155,6 +155,33 @@ def test_create_rejects_bogus_status(tmp_path: Path) -> None:
         asyncio.run(go())
 
 
+def test_create_rejects_reserved_created_attribute(tmp_path: Path) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"body": "bad", "attributes": {"created": "x"}},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+@pytest.mark.parametrize("reserved_key", ["updated", "id"])
+def test_create_rejects_other_reserved_attributes(tmp_path: Path, reserved_key: str) -> None:
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"body": "bad", "attributes": {reserved_key: "x"}},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
 # ---------------------------------------------------------------------------
 # get tool tests
 # ---------------------------------------------------------------------------

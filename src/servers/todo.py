@@ -20,6 +20,7 @@ STATUS_VALUES: set[str] = {"todo", "in-progress", "done", "blocked"}
 STATUS_KEY: str = "status"
 ORDER_KEY: str = "order"
 DEFAULT_STATUS: str = "todo"
+RESERVED_KEYS: frozenset[str] = frozenset({"created", "updated", "id"})
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +85,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
     @mcp.tool
     def create(body: str, attributes: dict | None = None) -> dict:
         attrs = dict(attributes) if attributes else {}
+        bad = RESERVED_KEYS & attrs.keys()
+        if bad:
+            raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
         status = attrs.get(STATUS_KEY, DEFAULT_STATUS)
         try:
             validate_against_set(status, STATUS_VALUES)

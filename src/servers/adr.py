@@ -25,6 +25,7 @@ STATUS_KEY: str = "status"
 SUPERSEDES_KEY: str = "supersedes"
 SUPERSEDED_BY_KEY: str = "superseded_by"
 DEFAULT_STATUS: str = "Proposed"
+RESERVED_KEYS: frozenset[str] = frozenset({"created", "updated", "id"})
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +204,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
         attributes: dict | None = None,
     ) -> dict:
         attrs = dict(attributes) if attributes else {}
+        bad = RESERVED_KEYS & attrs.keys()
+        if bad:
+            raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
         attrs["title"] = title
 
         status = attrs.get(STATUS_KEY, DEFAULT_STATUS)
@@ -248,6 +252,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
         attributes: dict | None = None,
     ) -> dict:
         patch: dict = dict(attributes) if attributes else {}
+        bad = RESERVED_KEYS & patch.keys()
+        if bad:
+            raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
         if status is not None:
             try:
                 validate_against_set(status, STATUS_VALUES)
