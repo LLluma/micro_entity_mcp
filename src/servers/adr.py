@@ -4,16 +4,17 @@ import os
 from datetime import UTC, datetime
 from datetime import date as date_cls
 from pathlib import Path
+from typing import cast
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
-from micro_entity.codec import entity_from_parts, parse_document
+from micro_entity.codec import CommentedMap, entity_from_parts, parse_document, serialize_document
 from micro_entity.entity import Entity
-from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.markdown_store import UNSET, MarkdownStore, UnsetType
 from micro_entity.query import query as query_entities
 from micro_entity.store import LoadError, NotFoundError
-from micro_entity.validation import FormError, validate_against_set
+from micro_entity.validation import FormError, validate_against_set, validate_attribute_value
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -81,6 +82,43 @@ def _get_migrated(store: MarkdownStore, id: str) -> Entity:
     fm.pop("date", None)
 
     return entity_from_parts(id, fm, body)
+
+
+def _update_migrated(
+    store: MarkdownStore,
+    id: str,
+    *,
+    attributes: dict | None = None,
+    body: str | None | UnsetType = UNSET,
+) -> Entity:
+    # Deliberate copy of store.update flow; ADR profile injects legacy timestamp migration here.
+    path = store._path_for(id)
+    if not path.is_file():
+        raise NotFoundError(f"entity not found: {id}")
+
+    text = path.read_text(encoding="utf-8")
+    fm, existing_body = parse_document(text)
+    fm = _normalize_frontmatter(fm)
+    fm.pop("date", None)
+
+    if attributes is not None:
+        for val in attributes.values():
+            validate_attribute_value(val)
+        for k, v in attributes.items():
+            fm[k] = v
+
+    fm["updated"] = store._clock().isoformat()
+
+    new_body: str | None
+    if body is UNSET:
+        new_body = existing_body
+    else:
+        assert isinstance(body, (str, type(None)))
+        new_body = body
+
+    document = serialize_document(cast(CommentedMap, fm), new_body)
+    store._atomic_write(path, document)
+    return entity_from_parts(id, fm, new_body)
 
 
 def _entity_to_dict(entity: Entity) -> dict:
@@ -220,7 +258,7 @@ def build_server(store: MarkdownStore) -> FastMCP:
         body_arg = body if body is not None else UNSET
 
         try:
-            updated = store.update(id, attributes=(patch or None), body=body_arg)
+            updated = _update_migrated(store, id, attributes=(patch or None), body=body_arg)
         except NotFoundError as e:
             raise ToolError(str(e)) from e
         except FormError as e:
@@ -238,11 +276,13 @@ def build_server(store: MarkdownStore) -> FastMCP:
             if not path.is_file():
                 raise ToolError(f"decision not found: {ident}")
 
-        old = store.update(
+        old = _update_migrated(
+            store,
             old_id,
             attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
         )
-        new = store.update(
+        new = _update_migrated(
+            store,
             new_id,
             attributes={SUPERSEDES_KEY: old_id},
         )
