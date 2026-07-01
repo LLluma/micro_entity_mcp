@@ -8,6 +8,7 @@ from fastmcp.exceptions import ToolError
 
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.partition import StoreProvider, UnresolvedSegmentError
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
@@ -70,7 +71,18 @@ def _next_id(store: MarkdownStore) -> str:
 # ---------------------------------------------------------------------------
 
 
-def build_server(store: MarkdownStore) -> FastMCP:
+def _resolve_store(
+    provider: StoreProvider,
+    project: str | None,
+) -> MarkdownStore:
+    """Resolve the store for a tool call; raise ToolError on failure."""
+    try:
+        return provider.get(project)
+    except UnresolvedSegmentError as e:
+        raise ToolError(str(e)) from e
+
+
+def build_server(provider: StoreProvider) -> FastMCP:
     """Build the FastMCP server for the todo profile.
 
     All tools are registered inside this function so tests can inject a
@@ -83,7 +95,12 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
 
     @mcp.tool
-    def create(body: str, attributes: dict | None = None) -> dict:
+    def create(
+        body: str,
+        attributes: dict | None = None,
+        project: str | None = None,
+    ) -> dict:
+        store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
         if bad:
@@ -100,7 +117,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(created)
 
     @mcp.tool
-    def get(id: str) -> dict:
+    def get(id: str, project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         try:
             entity = store.get(id)
         except NotFoundError as e:
@@ -108,7 +126,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(entity)
 
     @mcp.tool(name="list")
-    def list_items() -> dict:
+    def list_items(project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         entities, errors = store.load_all()
         return {
             "items": [_entity_to_dict(e) for e in entities],
@@ -116,7 +135,11 @@ def build_server(store: MarkdownStore) -> FastMCP:
         }
 
     @mcp.tool
-    def query(criteria: dict[str, list] | None = None) -> dict:
+    def query(
+        criteria: dict[str, list] | None = None,
+        project: str | None = None,
+    ) -> dict:
+        store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
@@ -127,7 +150,9 @@ def build_server(store: MarkdownStore) -> FastMCP:
         status: str | None = None,
         order: int | None = None,
         body: str | None = None,
+        project: str | None = None,
     ) -> dict:
+        store = _resolve_store(provider, project)
         attributes: dict = {}
         if status is not None:
             try:
@@ -149,7 +174,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(updated)
 
     @mcp.tool
-    def delete(id: str) -> dict:
+    def delete(id: str, project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         try:
             store.delete(id)
         except NotFoundError as e:
@@ -157,7 +183,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return {"deleted": id}
 
     @mcp.tool(name="next")
-    def next_tool() -> dict | None:
+    def next_tool(project: str | None = None) -> dict | None:
+        store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         actionable = [
             e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
@@ -176,12 +203,14 @@ def build_server(store: MarkdownStore) -> FastMCP:
         return _entity_to_dict(actionable[0])
 
     @mcp.tool
-    def clear() -> dict:
+    def clear(project: str | None = None) -> dict:
+        store = _resolve_store(provider, project)
         store.clear()
         return {"cleared": True}
 
     @mcp.tool
-    def is_complete() -> bool:
+    def is_complete(project: str | None = None) -> bool:
+        store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         return not any(
             e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
@@ -195,7 +224,8 @@ def build_server(store: MarkdownStore) -> FastMCP:
 # ---------------------------------------------------------------------------
 
 TODO_DIR = os.environ.get("TODO_DIR", str(Path.home() / ".micro_entity_todo"))
-mcp = build_server(MarkdownStore(Path(TODO_DIR)))
+_provider = StoreProvider(Path(TODO_DIR), None)
+mcp = build_server(_provider)
 
 if __name__ == "__main__":
     mcp.run()
