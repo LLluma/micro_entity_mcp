@@ -1,4 +1,71 @@
-from micro_entity.partition import resolve_segment, sanitize_segment
+from pathlib import Path
+
+import pytest
+
+from micro_entity.partition import (
+    StoreProvider,
+    UnresolvedSegmentError,
+    resolve_segment,
+    sanitize_segment,
+)
+
+# --- UnresolvedSegmentError tests ---
+
+
+def test_unresolved_segment_error_is_exception():
+    """UnresolvedSegmentError is a real Exception subclass."""
+    assert issubclass(UnresolvedSegmentError, Exception)
+
+
+# --- StoreProvider tests ---
+
+
+def test_provider_default_segment(tmp_path: Path) -> None:
+    """Default segment resolves to base/default, identity cached."""
+    provider = StoreProvider(tmp_path, "def")
+    store = provider.get()
+    assert store._directory == tmp_path / "def"
+
+
+def test_provider_default_identity_cached(tmp_path: Path) -> None:
+    """Two .get() calls with same args return the SAME instance."""
+    provider = StoreProvider(tmp_path, "def")
+    a = provider.get()
+    b = provider.get()
+    assert a is b
+
+
+def test_provider_different_segments_different_instances(tmp_path: Path) -> None:
+    """Different project → different store instances."""
+    provider = StoreProvider(tmp_path, "def")
+    default_store = provider.get()
+    other_store = provider.get("Other")
+    assert default_store is not other_store
+    assert default_store._directory == tmp_path / "def"
+    assert other_store._directory == tmp_path / "other"
+
+
+def test_provider_other_identity_cached(tmp_path: Path) -> None:
+    """Two .get('Other') calls return the SAME instance."""
+    provider = StoreProvider(tmp_path, "def")
+    a = provider.get("Other")
+    b = provider.get("Other")
+    assert a is b
+
+
+def test_provider_empty_explicit_fallback(tmp_path: Path) -> None:
+    """.get("  ") slugifies to empty → falls back to default."""
+    provider = StoreProvider(tmp_path, "fallback")
+    store = provider.get("  ")
+    assert store._directory == tmp_path / "fallback"
+
+
+def test_unresolved_segment_error_message():
+    """Exception carries a useful message."""
+    try:
+        raise UnresolvedSegmentError("no project segment could be resolved")
+    except UnresolvedSegmentError as exc:
+        assert "no project segment could be resolved" in str(exc)
 
 
 def test_sanitize_segment_lowercases():
@@ -80,3 +147,19 @@ def test_resolve_segment_both_none_returns_none():
 def test_resolve_segment_root_workspace_returns_none():
     """Workspace of '/' → basename empty → sanitize returns '' → None."""
     assert resolve_segment(explicit=None, workspace="/") is None
+
+
+def test_provider_no_default_no_override_raises(tmp_path: Path) -> None:
+    """No default, no project → UnresolvedSegmentError."""
+    provider = StoreProvider(tmp_path, None)
+    provider = StoreProvider(tmp_path, None)
+    with pytest.raises(UnresolvedSegmentError) as exc_info:
+        provider.get()
+    assert "no project segment could be resolved" in str(exc_info.value)
+
+
+def test_provider_explicit_project_would_work(tmp_path: Path) -> None:
+    """No default but explicit project → store bound to project."""
+    provider = StoreProvider(tmp_path, None)
+    store = provider.get("proj")
+    assert store._directory == tmp_path / "proj"
