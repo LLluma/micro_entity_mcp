@@ -13,25 +13,8 @@ from micro_entity.codec import (
     serialize_document,
 )
 from micro_entity.entity import Entity
-from micro_entity.store import LoadError, NotFoundError
+from micro_entity.store import UNSET, LoadError, NotFoundError, UnsetType
 from micro_entity.validation import FormError, Scalar, validate_attribute_value, validate_id
-
-
-class UnsetType:
-    """Sentinel singleton indicating "no value supplied"."""
-
-    _instance: "UnsetType | None" = None
-
-    def __new__(cls) -> "UnsetType":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self) -> str:
-        return "UNSET"
-
-
-UNSET = UnsetType()
 
 
 class MarkdownStore:

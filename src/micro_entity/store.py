@@ -7,6 +7,23 @@ from micro_entity.entity import Entity
 from micro_entity.validation import Scalar
 
 
+class UnsetType:
+    """Sentinel singleton indicating "no value supplied"."""
+
+    _instance: "UnsetType | None" = None
+
+    def __new__(cls) -> "UnsetType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = UnsetType()
+
+
 class NotFoundError(Exception):
     """Raised when a store lookup finds no record for the requested id."""
 
@@ -41,7 +58,7 @@ class Store(Protocol):
 
         Returns the created Entity.
 
-        Raises ``ValueError`` if *id* already exists.
+        Raises ``FileExistsError`` if *id* already exists.
         """
         ...
 
@@ -50,7 +67,7 @@ class Store(Protocol):
 
         Returns the Entity.
 
-        Raises ``ValueError`` if not found.
+        Raises ``NotFoundError`` if *id* does not exist.
         """
         ...
 
@@ -67,7 +84,7 @@ class Store(Protocol):
         id: str,
         *,
         attributes: dict[str, Scalar | list[Scalar]] | None = None,
-        body: str | None = None,
+        body: str | None | UnsetType = UNSET,
     ) -> Entity:
         """Patch an existing entity.
 
@@ -75,14 +92,14 @@ class Store(Protocol):
 
         Returns the updated Entity.
 
-        Raises ``ValueError`` if *id* does not exist.
+        Raises ``NotFoundError`` if *id* does not exist.
         """
         ...
 
     def delete(self, id: str) -> None:
         """Remove an entity by its id.
 
-        Raises ``ValueError`` if not found.
+        Raises ``NotFoundError`` if *id* does not exist.
         """
         ...
 

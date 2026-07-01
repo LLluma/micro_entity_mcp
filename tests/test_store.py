@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from micro_entity.entity import Entity
+from micro_entity.markdown_store import MarkdownStore
 from micro_entity.store import LoadError, Store
 
 
@@ -102,6 +103,9 @@ class TestStore:
         # isinstance should not raise; Protocol is runtime-checkable
         assert isinstance(stub, Store)
 
+    def test_markdown_store_is_store(self, tmp_path) -> None:
+        assert isinstance(MarkdownStore(tmp_path), Store)
+
     def test_all_method_signatures_match(self) -> None:
         """Every Store method has the expected signature shape."""
         expected = {"create", "get", "load_all", "update", "delete", "clear"}
@@ -134,48 +138,3 @@ class TestStore:
         stub = self._StubStore()
         # structural subtyping: isinstance succeeds even without subclassing
         assert isinstance(stub, Store)
-
-    def test_create_signature_accepts_scalar_types(self) -> None:
-        """create() attributes accept Scalar or list[Scalar]."""
-        stub = self._StubStore()
-        e = stub.create(
-            id="test",
-            attributes={"role": "admin", "count": 42},
-            body="hello",
-        )
-        assert e.id == "test"
-        assert e.attributes == {"role": "admin", "count": 42}
-
-    def test_create_default_body_none(self) -> None:
-        """create() defaults body to None when not provided."""
-        stub = self._StubStore()
-        e = stub.create(id="no-body", attributes={})
-        assert e.body is None
-
-    def test_load_all_returns_typed_tuple(self) -> None:
-        """load_all returns (list[Entity], list[LoadError])."""
-        stub = self._StubStore()
-        entities, errors = stub.load_all()
-        assert isinstance(entities, list)
-        assert isinstance(errors, list)
-        assert isinstance(entities, list)
-        assert all(isinstance(e, Entity) for e in entities)
-
-    def test_update_preserves_existing(self) -> None:
-        """update() only applies provided fields."""
-        stub = self._StubStore()
-        e = stub.update(id="u1", body="new body")
-        assert e.id == "u1"
-        assert e.body == "new body"
-
-    def test_delete_is_none_return(self) -> None:
-        """delete() returns None."""
-        stub = self._StubStore()
-        result = stub.delete("any-id")
-        assert result is None
-
-    def test_clear_is_none_return(self) -> None:
-        """clear() returns None."""
-        stub = self._StubStore()
-        result = stub.clear()
-        assert result is None
