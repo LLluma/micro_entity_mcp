@@ -283,16 +283,23 @@ def build_server(store: MarkdownStore) -> FastMCP:
             if not path.is_file():
                 raise ToolError(f"decision not found: {ident}")
 
+        old_path = store._path_for(old_id)
+        old_original_text = old_path.read_text(encoding="utf-8")
+
         old = _update_migrated(
             store,
             old_id,
             attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
         )
-        new = _update_migrated(
-            store,
-            new_id,
-            attributes={SUPERSEDES_KEY: old_id},
-        )
+        try:
+            new = _update_migrated(
+                store,
+                new_id,
+                attributes={SUPERSEDES_KEY: old_id},
+            )
+        except Exception as exc:
+            store._atomic_write(old_path, old_original_text)
+            raise ToolError(str(exc)) from exc
 
         return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
 
