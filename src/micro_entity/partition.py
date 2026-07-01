@@ -1,3 +1,4 @@
+import os
 import re
 
 
@@ -9,3 +10,15 @@ def sanitize_segment(name: str) -> str:
     if text in (".", "..") or text == "":
         return ""
     return text
+
+
+def resolve_segment(*, explicit: str | None, workspace: str | None) -> str | None:
+    if explicit is not None:
+        slug = sanitize_segment(explicit)
+        if slug:
+            return slug
+    if workspace is not None:
+        slug = sanitize_segment(os.path.basename(workspace.rstrip("/")))
+        if slug:
+            return slug
+    return None
