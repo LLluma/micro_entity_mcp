@@ -135,6 +135,44 @@ def test_supersede_rolls_back_old_on_second_write_failure(
     assert "superseded_by" not in fm
 
 
+def test_supersede_malformed_old_date_raises_tool_error(tmp_path: Path) -> None:
+    """A malformed-date old record should produce a ToolError; new_id must NOT be modified."""
+    (tmp_path / "seg").mkdir()
+    # Seed malformed old record
+    (tmp_path / "seg" / "ADR-0099.md").write_text(
+        "---\nstatus: Accepted\ndate: not-a-real-date\ntitle: Bad\n---\nbad body\n",
+        encoding="utf-8",
+    )
+    # Seed a normal new record
+    (tmp_path / "seg" / "ADR-0100.md").write_text(
+        "---\n"
+        "id: ADR-0100\n"
+        "title: New\n"
+        "status: Proposed\n"
+        "created: 2026-07-01 00:00:00+00:00\n"
+        "updated: 2026-07-01 00:00:00+00:00\n"
+        "---\n"
+        "good body\n",
+        encoding="utf-8",
+    )
+    new_path = tmp_path / "seg" / "ADR-0100.md"
+    new_before = new_path.read_text(encoding="utf-8")
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "supersede",
+                {"old_id": "ADR-0099", "new_id": "ADR-0100"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+    # New record must NOT have been modified (no partial write)
+    new_after = new_path.read_text(encoding="utf-8")
+    assert new_after == new_before
+
+
 def test_supersede_missing_old_leaves_new_untouched(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:

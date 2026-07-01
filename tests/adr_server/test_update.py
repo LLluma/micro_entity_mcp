@@ -155,6 +155,29 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     assert after_fm["updated"] != before_fm["updated"]
 
 
+def test_update_malformed_legacy_date_raises_tool_error(tmp_path: Path) -> None:
+    adr_dir = tmp_path / "adr"
+    adr_dir.mkdir()
+    seg_dir = adr_dir / "seg"
+    seg_dir.mkdir()
+    (seg_dir / "ADR-0100.md").write_text(
+        "---\nstatus: Accepted\ndate: not-a-real-date\ntitle: Bad\n---\nbody\n",
+        encoding="utf-8",
+    )
+    provider = StoreProvider(adr_dir, "seg")
+
+    async def go():
+        async with Client(build_server(provider)) as c:
+            return await c.call_tool(
+                "update",
+                {"id": "ADR-0100", "status": "Accepted"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
 def test_supersede_legacy_records_succeeds(tmp_path: Path) -> None:
     adr_dir = tmp_path / "adr"
     shutil.copytree(

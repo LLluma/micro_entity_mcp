@@ -220,7 +220,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 body=body_arg,
                 normalize=_adr_normalize,
             )
-        except FormError as e:
+        except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
         return _entity_to_dict(updated)
@@ -238,11 +238,14 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         old_original_text = store.path_for(old_id).read_text(encoding="utf-8")
 
-        old = store.update(
-            old_id,
-            attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
-            normalize=_adr_normalize,
-        )
+        try:
+            old = store.update(
+                old_id,
+                attributes={STATUS_KEY: "Superseded", SUPERSEDED_BY_KEY: new_id},
+                normalize=_adr_normalize,
+            )
+        except (FormError, ValueError) as e:
+            raise ToolError(str(e)) from e
         try:
             new = store.update(
                 new_id,
