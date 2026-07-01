@@ -1,0 +1,128 @@
+"""Tests for MarkdownStore.create and validation."""
+
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+
+class TestCreate:
+    """Tests for MarkdownStore.create."""
+
+    def test_create_writes_parseable_markdown_file(self, tmp_path: Path) -> None:
+        from micro_entity.codec import parse_document
+        from micro_entity.markdown_store import MarkdownStore
+
+        called: list[datetime] = []
+
+        def fake_clock() -> datetime:
+            dt = datetime(2025, 1, 15, 10, 0, 0, tzinfo=UTC)
+            called.append(dt)
+            return dt
+
+        store = MarkdownStore(tmp_path, clock=fake_clock)
+        entity = store.create("entity-1", attributes={"role": "admin"}, body="hello")
+
+        # Returned entity has created == updated == clock value
+        assert entity.id == "entity-1"
+        assert entity.created == called[0]
+        assert entity.updated == called[0]
+        assert entity.body == "hello"
+        assert entity.attributes == {"role": "admin"}
+
+        # File exists
+        path = tmp_path / "entity-1.md"
+        assert path.is_file()
+
+        # File is parseable by codec
+        fm, body = parse_document(path.read_text(encoding="utf-8"))
+        assert str(fm["created"]) == "2025-01-15T10:00:00+00:00"
+        assert str(fm["updated"]) == "2025-01-15T10:00:00+00:00"
+        assert fm["role"] == "admin"
+        assert body == "hello"
+
+    def test_create_returns_entity_with_equal_timestamps(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        def fake_clock() -> datetime:
+            return datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
+
+        store = MarkdownStore(tmp_path, clock=fake_clock)
+
+        entity = store.create("noattr", attributes={})
+
+        # Both timestamps come from the same clock invocation => equality
+        assert entity.created == entity.updated
+
+
+class TestCreateFileExists:
+    """Tests for MarkdownStore.create duplicate handling."""
+
+    def test_create_existing_id_raises_file_exists_error(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+
+        store.create("dup", attributes={})
+        with pytest.raises(FileExistsError):
+            store.create("dup", attributes={})
+
+
+class TestCreateValidation:
+    """Tests for MarkdownStore.create bad attribute validation."""
+
+    def test_bad_attribute_value_raises_before_file_written(self, tmp_path: Path) -> None:
+
+        from micro_entity.markdown_store import MarkdownStore
+        from micro_entity.validation import FormError
+
+        store = MarkdownStore(tmp_path)
+
+        # Nested list is rejected by attribute validation (checked at the store layer,
+        # so no partial file is left on disk before any I/O).
+        with pytest.raises(FormError):
+            store.create(
+                "badval",
+                attributes={"tags": [[1, 2]]},  # type: ignore[arg-type]
+            )
+
+    def test_invalid_id_raises(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+        from micro_entity.validation import FormError
+
+        store = MarkdownStore(tmp_path)
+
+        with pytest.raises(FormError):
+            store.create("../bad", attributes={})
+
+
+class TestCreateRoundTrip:
+    """Tests for MarkdownStore.create round-trip."""
+
+    def test_attributes_round_trip(self, tmp_path: Path) -> None:
+        from micro_entity.codec import parse_document
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path)
+
+        store.create(
+            "rt",
+            attributes={
+                "name": "test",
+                "score": 42,
+                "enabled": True,
+                "ratio": 3.14,
+                "tags": ["a", "b", "c"],
+            },
+        )
+
+        path = tmp_path / "rt.md"
+        fm, body = parse_document(path.read_text(encoding="utf-8"))
+
+        assert fm["name"] == "test"
+        assert fm["score"] == 42
+        assert fm["enabled"] is True
+        assert abs(float(fm["ratio"]) - 3.14) < 0.01
+        # list is preserved by ruamel.yaml
+        assert list(fm["tags"]) == ["a", "b", "c"]
+        assert body is None
