@@ -53,3 +53,13 @@ class TestExists:
         assert not missing.exists()
         MarkdownStore(missing)
         assert missing.is_dir()
+
+
+class TestDirectoryProperty:
+    """Tests for MarkdownStore.directory property."""
+
+    def test_directory_returns_resolved_segment_path(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        store = MarkdownStore(tmp_path, segment="x")
+        assert store.directory == tmp_path / "x"

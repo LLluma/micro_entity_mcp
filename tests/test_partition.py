@@ -25,6 +25,8 @@ def test_provider_default_segment(tmp_path: Path) -> None:
     provider = StoreProvider(tmp_path, "def")
     store = provider.get()
     assert store._directory == tmp_path / "def"
+    assert provider.base == tmp_path
+    assert provider.default_segment == "def"
 
 
 def test_provider_default_identity_cached(tmp_path: Path) -> None:
@@ -163,3 +165,15 @@ def test_provider_explicit_project_would_work(tmp_path: Path) -> None:
     provider = StoreProvider(tmp_path, None)
     store = provider.get("proj")
     assert store._directory == tmp_path / "proj"
+
+
+def test_provider_no_default_is_none(tmp_path: Path) -> None:
+    """default_segment=None stays None."""
+    provider = StoreProvider(tmp_path, None)
+    assert provider.default_segment is None
+
+
+def test_provider_base_resolves(tmp_path: Path) -> None:
+    """base returns the resolved Path."""
+    provider = StoreProvider(tmp_path, "seg")
+    assert provider.base == tmp_path

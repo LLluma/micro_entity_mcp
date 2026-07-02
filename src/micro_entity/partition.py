@@ -39,6 +39,14 @@ class StoreProvider:
         self._default_segment = default_segment
         self._stores: dict[str, MarkdownStore] = {}
 
+    @property
+    def base(self) -> Path:
+        return self._base
+
+    @property
+    def default_segment(self) -> str | None:
+        return self._default_segment
+
     def get(self, project: str | None = None) -> MarkdownStore:
         seg = resolve_segment(explicit=project, workspace=None)
         if not seg:

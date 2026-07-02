@@ -35,6 +35,10 @@ class MarkdownStore:
         self._clock = clock
         self._directory.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def directory(self) -> Path:
+        return self._directory
+
     def _path_for(self, id: str) -> Path:
         """Resolve an entity id to a file path under the store directory.
 
