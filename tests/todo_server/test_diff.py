@@ -86,6 +86,47 @@ def test_diff_ref_works_tree(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# No-ref defaults: last-change diff
+# ---------------------------------------------------------------------------
+
+
+def test_diff_no_args_returns_last_change(tmp_path: Path) -> None:
+    """diff(id) with no ref args returns the last commit that touched the
+    file. After create+update the diff must be non-empty."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool("create", {"body": "original body"})
+            await c.call_tool(
+                "update",
+                {"id": "0001", "status": "in-progress", "body": "CHANGED_BODY_XYZ"},
+            )
+            r = await c.call_tool("diff", {"id": "0001"})
+            return r.data
+
+    data = asyncio.run(go())
+    diff_text = data["diff"]
+    assert diff_text != "", "no-arg diff on updated todo must be non-empty (last change)"
+    assert "CHANGED_BODY_XYZ" in diff_text
+
+
+def test_diff_no_args_single_commit(tmp_path: Path) -> None:
+    """diff(id) on a freshly created todo (1 commit) returns a non-empty
+    diff showing its content as an addition."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool("create", {"body": "initial content"})
+            r = await c.call_tool("diff", {"id": "0001"})
+            return r.data
+
+    data = asyncio.run(go())
+    diff_text = data["diff"]
+    assert diff_text != "", "no-arg diff on single-commit todo must be non-empty"
+    assert "initial content" in diff_text
+
+
+# ---------------------------------------------------------------------------
 # Non-git store raises ToolError
 # ---------------------------------------------------------------------------
 
