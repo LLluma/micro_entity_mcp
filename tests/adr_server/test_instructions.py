@@ -22,6 +22,7 @@ def test_server_instructions_present(tmp_path: Path) -> None:
         '"item"',
         '"commit"',
         "project",
+        "same parallel batch as a write may not observe",
     ]
     for slice in slices:
         assert slice in text, f"missing: {slice!r} in server.instructions"

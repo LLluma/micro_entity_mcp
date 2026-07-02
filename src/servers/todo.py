@@ -55,6 +55,9 @@ otherwise any store operation fails with "storage is not under git".
 The `project` argument selects the per-project partition (defaults to the
 workspace); `health` reports the resolved base / segment / dir.
 
+A read issued in the same parallel batch as a write may not observe that write;
+sequence dependent calls rather than batching a read with its write.
+
 A missing id fails with "not found: {id}".
 """
 STATUS_VALUES: set[str] = {"todo", "in-progress", "done", "blocked"}
