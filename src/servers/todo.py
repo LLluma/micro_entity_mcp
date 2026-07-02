@@ -137,12 +137,23 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return _entity_to_dict(entity)
 
     @mcp.tool(name="list")
-    def list_items(project: str = "") -> dict:
-        """List all todos in the partition, plus any load errors."""
+    def list_items(project: str = "", include_body: bool = False) -> dict:
+        """List all todos in the partition, plus any load errors.
+
+        When ``include_body`` is False (default), the ``body`` key is stripped
+        from each item dict. When True, the full entity dict including ``body``
+        is returned.
+        """
         store = _resolve_store(provider, project)
         entities, errors = store.load_all()
+        items: list[dict] = []
+        for e in entities:
+            d = _entity_to_dict(e)
+            if not include_body:
+                d.pop("body", None)
+            items.append(d)
         return {
-            "items": [_entity_to_dict(e) for e in entities],
+            "items": items,
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
 

@@ -23,7 +23,7 @@ def test_default_segment_create_and_list(tmp_path: Path) -> None:
         provider = StoreProvider(tmp_path, "proj")
         async with Client(build_server(provider)) as c:
             await c.call_tool("create", {"body": "default item", "attributes": {}})
-            result = await c.call_tool("list", {})
+            result = await c.call_tool("list", {"include_body": True})
         return result
 
     r = asyncio.run(go())
@@ -54,9 +54,9 @@ def test_project_override_isolation(tmp_path: Path) -> None:
                 {"body": "other item", "attributes": {}, "project": "other"},
             )
             # Default list (proj) should see only the default item
-            list_default = await c.call_tool("list", {})
+            list_default = await c.call_tool("list", {"include_body": True})
             # List with project='other' should see only the other item
-            list_other = await c.call_tool("list", {"project": "other"})
+            list_other = await c.call_tool("list", {"project": "other", "include_body": True})
         return list_default, list_other
 
     default_result, other_result = asyncio.run(go())
