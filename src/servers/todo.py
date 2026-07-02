@@ -20,7 +20,6 @@ from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 from servers.schemas import (
-    ClearedResult,
     CommitResult,
     CommitsResult,
     CompleteResult,
@@ -289,8 +288,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
         return {"ok": True, "id": id, "commit": sha}
 
-    @mcp.tool
-    def clear(project: str = "") -> ClearedResult:
         """Delete all todos in the partition."""
         store = _resolve_store(provider, project)
         n = store.clear()

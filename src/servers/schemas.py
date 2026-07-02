@@ -27,11 +27,6 @@ class OkIdCommitResult(TypedDict):
     commit: str | None
 
 
-class ClearedResult(TypedDict):
-    ok: bool
-    cleared: int
-
-
 class CompleteResult(TypedDict):
     complete: bool
 
