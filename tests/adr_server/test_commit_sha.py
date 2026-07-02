@@ -5,6 +5,7 @@ Additive key — all existing keys stay exactly as before.
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.adr_server.conftest import _client
 
@@ -26,7 +27,7 @@ def test_create_returns_commit_sha(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "item" in data
     item = data["item"]
     assert item["id"] == "ADR-SHA1"
@@ -54,7 +55,7 @@ def test_update_returns_commit_sha(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "item" in data
     assert data["item"]["attributes"]["status"] == "Accepted"
     assert "commit" in data
@@ -81,7 +82,7 @@ def test_patch_body_returns_commit_sha(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "item" in data
     assert data["item"]["body"] == "new word"
     assert "commit" in data
@@ -112,7 +113,7 @@ def test_revert_returns_commit_sha(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "item" in data
     assert "STATE_A" in data["item"]["body"]
     assert "commit" in data
@@ -143,7 +144,7 @@ def test_supersede_returns_commit_sha(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "superseded" in data
     assert "superseding" in data
     assert data["superseded"]["attributes"]["status"] == "Superseded"
@@ -168,6 +169,6 @@ def test_get_returns_no_commit_key(tmp_path: Path) -> None:
             return await c.call_tool("get", {"id": "ADR-SHA6"})
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert "item" in data
     assert "commit" not in data

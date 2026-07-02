@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -28,7 +29,7 @@ def test_history_returns_commits_newest_first(tmp_path: Path) -> None:
             return await c.call_tool("history", {"id": "ADR-0001"})
 
     r = asyncio.run(go())
-    commits = r.data["commits"]
+    commits = (_tc(dict, r.structured_content))["commits"]
     assert len(commits) == 3, f"expected 3 commits, got {len(commits)}"
     # newest-first: message contains the update for ADR-0001
     assert "update adr ADR-0001" in commits[0]["message"]
@@ -49,7 +50,7 @@ def test_history_with_limit_returns_exact_count(tmp_path: Path) -> None:
             return await c.call_tool("history", {"id": "ADR-0002", "limit": 1})
 
     r = asyncio.run(go())
-    assert len(r.data["commits"]) == 1
+    assert len((_tc(dict, r.structured_content))["commits"]) == 1
 
 
 def test_history_non_git_store_raises_tool_error() -> None:

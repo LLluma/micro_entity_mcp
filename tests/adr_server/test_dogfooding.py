@@ -1,6 +1,7 @@
 import asyncio
 import re
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -31,7 +32,7 @@ def test_dogfood_real_adr_files_all_load(tmp_path: Path) -> None:
             return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     items = data["items"]
     errors = data["errors"]
 

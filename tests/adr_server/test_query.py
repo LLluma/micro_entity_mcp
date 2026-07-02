@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.adr_server.conftest import _client
 
@@ -31,8 +32,8 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 1
-    assert r.data["items"][0]["id"] == "ADR-0007"
+    assert len((_tc(dict, r.structured_content))["items"]) == 1
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0007"
 
 
 def test_query_filter_by_status(tmp_path: Path) -> None:
@@ -56,8 +57,8 @@ def test_query_filter_by_status(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 1
-    assert r.data["items"][0]["id"] == "ADR-0007"
+    assert len((_tc(dict, r.structured_content))["items"]) == 1
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0007"
 
 
 def test_query_empty_returns_all(tmp_path: Path) -> None:
@@ -74,7 +75,7 @@ def test_query_empty_returns_all(tmp_path: Path) -> None:
             return await c.call_tool("query", {})
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 2
+    assert len((_tc(dict, r.structured_content))["items"]) == 2
 
 
 def test_query_no_match_empty(tmp_path: Path) -> None:
@@ -90,7 +91,7 @@ def test_query_no_match_empty(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert r.data["items"] == []
+    assert (_tc(dict, r.structured_content))["items"] == []
 
 
 def test_query_docstring_substrings(tmp_path: Path) -> None:

@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 
@@ -19,7 +20,7 @@ def test_add_returns_entity_dict(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data["item"]
+    data = (_tc(dict, r.structured_content))["item"]
     assert data["id"] == "ADR-0007"
     assert data["attributes"]["title"] == "Some decision"
     assert data["attributes"]["status"] == "Proposed"
@@ -120,5 +121,5 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data["item"]
+    data = (_tc(dict, r.structured_content))["item"]
     assert data["attributes"]["status"] == "Accepted"

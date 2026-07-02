@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp import Client
@@ -27,8 +28,8 @@ def test_default_segment_add_and_list(tmp_path: Path) -> None:
         return result
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 1
-    assert r.data["items"][0]["id"] == "ADR-0001"
+    assert len((_tc(dict, r.structured_content))["items"]) == 1
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
     # Verify file actually under tmp_path/proj/
     assert (tmp_path / "proj" / "ADR-0001.md").exists()
 
@@ -60,10 +61,12 @@ def test_project_override_isolation(tmp_path: Path) -> None:
         return list_default, list_shared
 
     default_result, shared_result = asyncio.run(go())
-    assert len(default_result.data["items"]) == 1
-    assert default_result.data["items"][0]["attributes"]["title"] == "Proj item"
-    assert len(shared_result.data["items"]) == 1
-    assert shared_result.data["items"][0]["attributes"]["title"] == "Shared item"
+    assert len((_tc(dict, default_result.structured_content))["items"]) == 1
+    _items = (_tc(dict, default_result.structured_content))["items"]
+    assert _items[0]["attributes"]["title"] == "Proj item"
+    assert len((_tc(dict, shared_result.structured_content))["items"]) == 1
+    _items2 = (_tc(dict, shared_result.structured_content))["items"]
+    assert _items2[0]["attributes"]["title"] == "Shared item"
     # File locations
     assert (tmp_path / "proj" / "ADR-0001.md").exists()
     assert (tmp_path / "shared" / "ADR-0002.md").exists()
@@ -101,5 +104,5 @@ def test_health_no_project_param(tmp_path: Path) -> None:
             return await c.call_tool("health", {})
 
     r = asyncio.run(go())
-    assert r.data["status"] == "ok"
-    assert "status_values" in r.data
+    assert (_tc(dict, r.structured_content))["status"] == "ok"
+    assert "status_values" in (_tc(dict, r.structured_content))

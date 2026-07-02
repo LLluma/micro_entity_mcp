@@ -21,6 +21,17 @@ from micro_entity.partition import (
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
+from servers.schemas import (
+    CommitResult,
+    CommitsResult,
+    DiffResult,
+    HealthResult,
+    ItemCommitResult,
+    ItemResult,
+    ItemsResult,
+    ListResult,
+    SupersedeResult,
+)
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -171,7 +182,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     mcp = FastMCP("adr", instructions=ADR_INSTRUCTIONS)
 
     @mcp.tool
-    def health() -> dict:
+    def health() -> HealthResult:
         """Health check; returns "ok", allowed status values, and partition resolution."""
         seg = provider.default_segment
         if seg:
@@ -197,7 +208,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         body: str,
         attributes: dict | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Create an ADR with id, title, and body; default status
         "Proposed".  `attributes` adds frontmatter fields (reserved
         keys id/created/updated are rejected); `project` selects the
@@ -228,7 +239,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(entity), "commit": sha}
 
     @mcp.tool
-    def get(id: str, project: str = "") -> dict:
+    def get(id: str, project: str = "") -> ItemResult:
         """Fetch one ADR by id, migrating legacy date-only records."""
         store = _resolve_store(provider, project)
         if not store.exists(id):
@@ -241,7 +252,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(entity)}
 
     @mcp.tool(name="list")
-    def list_decisions(project: str = "", include_body: bool = False) -> dict:
+    def list_decisions(project: str = "", include_body: bool = False) -> ListResult:
         """List all ADRs in the partition; malformed records are quarantined
         into `errors`.  When ``include_body`` is False (default), the ``body``
         field is omitted from each item."""
@@ -265,7 +276,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         body: str | None = None,
         attributes: dict | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Update an ADR's status, body, and/or attributes by id."""
         store = _resolve_store(provider, project)
         patch: dict = dict(attributes) if attributes else {}
@@ -298,7 +309,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def supersede(old_id: str, new_id: str, project: str = "") -> dict:
+    def supersede(old_id: str, new_id: str, project: str = "") -> SupersedeResult:
         """Mark old_id Superseded (superseded_by=new_id) and record new_id
         as superseding it; atomic with rollback on failure."""
         store = _resolve_store(provider, project)
@@ -346,7 +357,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def query(
         criteria: dict[str, list] | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemsResult:
         """Return ADRs whose attributes match `criteria`.
 
         `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
@@ -364,7 +375,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def search(
         text: str,
         project: str = "",
-    ) -> dict:
+    ) -> ItemsResult:
         """Case-insensitive full-text search over ADR body and
         attributes."""
         store = _resolve_store(provider, project)
@@ -378,7 +389,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         old: str,
         new: str,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Scoped, literal string replacement inside an ADR's body.
 
         Replaces exactly one occurrence of ``old`` with ``new``.
@@ -413,7 +424,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> dict:
+    def commit(ids: list[str], message: str, project: str = "") -> CommitResult:
         """Stage and commit the named ADR files.
 
         Returns the new commit SHA or ``None`` when there were no pending
@@ -434,7 +445,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         project: str = "",
         limit: int = 20,
-    ) -> dict:
+    ) -> CommitsResult:
         """Return the git commit history for a single ADR file.
 
         Returns ``{"commits": [...]}`` where each entry has ``sha``,
@@ -454,7 +465,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         ref: str | None = None,
         to: str | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> DiffResult:
         """Return the unified diff for an ADR file.
 
         With no refs (the default), shows the last commit that touched this
@@ -479,7 +490,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         ref: str,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Restore an ADR to its contents at *ref* and commit forward.
 
         Reads the file as committed at *ref*, writes it back

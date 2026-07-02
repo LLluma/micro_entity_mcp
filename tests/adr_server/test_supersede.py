@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -25,7 +26,7 @@ def test_supersede_sets_pointers(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert data["superseded"]["attributes"]["status"] == "Superseded"
     assert data["superseded"]["attributes"]["superseded_by"] == "ADR-0008"
     assert data["superseding"]["attributes"]["supersedes"] == "ADR-0007"
@@ -48,7 +49,7 @@ def test_supersede_status_is_clean_enum(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    status_val = r.data["superseded"]["attributes"]["status"]
+    status_val = (_tc(dict, r.structured_content))["superseded"]["attributes"]["status"]
     assert status_val == "Superseded"
     assert "by" not in status_val
 

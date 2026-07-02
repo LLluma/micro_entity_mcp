@@ -4,6 +4,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -32,7 +33,7 @@ def test_commit_pending_change(tmp_path: Path) -> None:
         return result
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert data["ok"] is True
     assert data["commit"] is not None
     assert data["ids"] == ["ADR-0001"]
@@ -59,7 +60,7 @@ def test_commit_no_pending_change(tmp_path: Path) -> None:
         return result
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert data["ok"] is True
     assert data["commit"] is None
     assert data["ids"] == ["ADR-0001"]

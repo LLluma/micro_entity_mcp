@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -41,7 +42,7 @@ def test_revert_restores_previous_commit_and_creates_new_commit(tmp_path: Path) 
         assert any("update adr" in e["message"] for e in log)
 
         # Returned item body contains "STATE_A".
-        item = result.data["item"]
+        item = (_tc(dict, result.structured_content))["item"]
         assert "STATE_A" in item["body"]
 
         # On-disk file body contains "STATE_A".
@@ -65,7 +66,7 @@ def test_revert_to_current_head_returns_current_body_no_new_commit(tmp_path: Pat
                 {"id": "ADR-0001", "ref": "HEAD"},
             )
 
-        item = result.data["item"]
+        item = (_tc(dict, result.structured_content))["item"]
         assert "STATE_A" in item["body"]
 
     asyncio.run(go())

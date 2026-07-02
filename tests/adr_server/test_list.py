@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -14,8 +15,8 @@ def test_list_empty_partition(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    assert r.data["items"] == []
-    assert r.data["errors"] == []
+    assert (_tc(dict, r.structured_content))["items"] == []
+    assert (_tc(dict, r.structured_content))["errors"] == []
 
 
 def test_list_sorted_after_two_adds(tmp_path: Path) -> None:
@@ -32,9 +33,9 @@ def test_list_sorted_after_two_adds(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    items = r.data["items"]
+    items = (_tc(dict, r.structured_content))["items"]
     assert len(items) == 2
-    assert r.data["errors"] == []
+    assert (_tc(dict, r.structured_content))["errors"] == []
     assert items[0]["id"] == "ADR-0007"
     assert items[1]["id"] == "ADR-0008"
 
@@ -57,8 +58,8 @@ def test_list_migrates_legacy_record(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    items = r.data["items"]
-    errors = r.data["errors"]
+    items = (_tc(dict, r.structured_content))["items"]
+    errors = (_tc(dict, r.structured_content))["errors"]
     assert errors == []
     assert len(items) == 1
     assert items[0]["id"] == "ADR-0200"
@@ -77,8 +78,8 @@ def test_list_malformed_file_in_errors(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    items = r.data["items"]
-    errors = r.data["errors"]
+    items = (_tc(dict, r.structured_content))["items"]
+    errors = (_tc(dict, r.structured_content))["errors"]
     assert items == []
     assert len(errors) == 1
     assert errors[0]["id"] == "bad"
@@ -98,7 +99,7 @@ def test_list_default_strips_body(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    items = r.data["items"]
+    items = (_tc(dict, r.structured_content))["items"]
     assert len(items) >= 1, "Need at least one ADR to assert"
     for item in items:
         assert "body" not in item, (
@@ -115,7 +116,7 @@ def test_list_include_body_true_includes_body(tmp_path: Path) -> None:
             return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
-    items = r.data["items"]
+    items = (_tc(dict, r.structured_content))["items"]
     assert len(items) >= 1, "Need at least one ADR to assert"
     for item in items:
         assert "body" in item, f"include_body=True must include body; got keys: {list(item.keys())}"
@@ -138,7 +139,7 @@ def test_list_default_preserves_id_attributes(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    items = r.data["items"]
+    items = (_tc(dict, r.structured_content))["items"]
     items_by_id = {it["id"]: it for it in items}
     adr = items_by_id["ADR-9003"]
     assert "id" in adr

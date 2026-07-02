@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp import Client
@@ -30,7 +31,7 @@ def test_patch_body_single_occurrence_replaces_and_preserves(tmp_path: Path) -> 
                 "patch_body",
                 {"id": "ADR-X01", "old": "SPICE", "new": "GLORY"},
             )
-        data = result.data["item"]
+        data = (_tc(dict, result.structured_content))["item"]
         assert data["body"] == "before GLORY after"
         # other attributes survive unchanged
         assert data["attributes"]["title"] == "X"
@@ -56,7 +57,7 @@ def test_patch_body_preserves_frontmatter_order(tmp_path: Path) -> None:
                 "patch_body",
                 {"id": "ADR-X02", "old": "END", "new": "DONE"},
             )
-        data = result.data["item"]
+        data = (_tc(dict, result.structured_content))["item"]
 
         # body is patched
         assert data["body"] == "start DONE end"

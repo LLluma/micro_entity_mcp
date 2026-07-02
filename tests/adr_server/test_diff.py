@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -44,13 +45,13 @@ def test_diff_between_ref_and_head(tmp_path: Path) -> None:
                     "to": "HEAD",
                 },
             )
-        diff_text = r1.data["diff"]
+        diff_text = (_tc(dict, r1.structured_content))["diff"]
         assert isinstance(diff_text, str)
         assert diff_text  # non-empty
         # diff to=None is ref vs working tree — working tree = HEAD content
         assert "CHANGED_BODY_XYZ" in diff_text
 
-        diff_text2 = r2.data["diff"]
+        diff_text2 = (_tc(dict, r2.structured_content))["diff"]
         assert isinstance(diff_text2, str)
         assert diff_text2  # non-empty
         assert "CHANGED_BODY_XYZ" in diff_text2
@@ -77,7 +78,7 @@ def test_diff_same_ref_to_head_is_empty(tmp_path: Path) -> None:
                     "to": "HEAD",
                 },
             )
-        assert r.data["diff"] == ""
+        assert (_tc(dict, r.structured_content))["diff"] == ""
 
     asyncio.run(go())
 
@@ -104,7 +105,7 @@ def test_diff_no_ref_after_update(tmp_path: Path) -> None:
                 },
             )
             r = await c.call_tool("diff", {"id": "ADR-0100"})
-        diff_text = r.data["diff"]
+        diff_text = (_tc(dict, r.structured_content))["diff"]
         assert isinstance(diff_text, str)
         assert diff_text  # non-empty — last commit changed body
         assert "UPDATED_BODY_ABC" in diff_text
@@ -126,7 +127,7 @@ def test_diff_no_ref_fresh_adr(tmp_path: Path) -> None:
                 },
             )
             r = await c.call_tool("diff", {"id": "ADR-0200"})
-        diff_text = r.data["diff"]
+        diff_text = (_tc(dict, r.structured_content))["diff"]
         assert isinstance(diff_text, str)
         assert diff_text  # non-empty — initial commit shows file as addition
         assert "FRESH_BODY" in diff_text
@@ -151,7 +152,7 @@ def test_diff_explicit_range(tmp_path: Path) -> None:
                 "diff",
                 {"id": "ADR-0300", "ref": "HEAD~1"},
             )
-        diff_text = r.data["diff"]
+        diff_text = (_tc(dict, r.structured_content))["diff"]
         assert diff_text  # non-empty
         # working tree = HEAD content (auto-commit), so ref vs working = ref vs HEAD
         assert "CHANGED" in diff_text

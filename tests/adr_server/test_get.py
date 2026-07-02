@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -21,7 +22,7 @@ def test_get_returns_added_entity(tmp_path: Path) -> None:
             return await c.call_tool("get", {"id": "ADR-0007"})
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert data["item"]["id"] == "ADR-0007"
     assert data["item"]["attributes"]["title"] == "T"
     assert data["item"]["body"] == "prose"
@@ -41,7 +42,7 @@ def test_get_legacy_migration(tmp_path: Path) -> None:
             return await c.call_tool("get", {"id": "ADR-0100"})
 
     r = asyncio.run(go())
-    data = r.data
+    data = _tc(dict, r.structured_content)
     assert data["item"]["attributes"]["title"] == "Legacy"
     # Migrated timestamps should be midnight UTC of the date
     assert data["item"]["created"] == "2026-06-29T00:00:00Z"
