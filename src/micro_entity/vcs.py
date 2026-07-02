@@ -87,3 +87,22 @@ def commit_paths(repo_root: Path, paths: list[Path], message: str) -> str | None
         check=True,
     )
     return sha_result.stdout.strip()
+
+
+def read_at_ref(repo_root: Path, path: Path, ref: str) -> str:
+    """Return file *path* content as text at git *ref*.
+
+    Uses ``git show <ref>:<relpath>`` and returns the stdout content.
+
+    Raises:
+        subprocess.CalledProcessError: if the ref or path is unknown.
+    """
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f"{ref}:{rel}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
