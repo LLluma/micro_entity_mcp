@@ -98,7 +98,22 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def health() -> dict:
         """Health check; returns "ok" and the allowed status values
         (todo, in-progress, done, blocked)."""
-        return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
+        seg = provider.default_segment
+        if seg:
+            try:
+                store = provider.get(None)
+                dir_val = str(store.directory)
+            except UnresolvedSegmentError:
+                dir_val = None
+        else:
+            dir_val = None
+        return {
+            "status": "ok",
+            "status_values": sorted(STATUS_VALUES),
+            "base": str(provider.base),
+            "segment": seg,
+            "dir": dir_val,
+        }
 
     @mcp.tool
     def create(
