@@ -70,36 +70,6 @@ def test_revert_nonexistent_id_raises_not_found(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# commit — id never created
-# ---------------------------------------------------------------------------
-
-
-def test_commit_nonexistent_id_raises_not_found(tmp_path: Path) -> None:
-    """calling commit with a nonexistent id → ToolError."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            with pytest.raises(ToolError) as exc:
-                await c.call_tool("commit", {"ids": ["ADR-9999"], "message": "nope"})
-        assert "not found: ADR-9999" in str(exc.value)
-
-    asyncio.run(go())
-
-
-def test_commit_mixed_ids_nonexistent_raises_not_found(tmp_path: Path) -> None:
-    """commit with one real + one nonexistent id → ToolError for the missing one."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            await c.call_tool("create", {"title": "T", "body": "B"})
-            with pytest.raises(ToolError) as exc:
-                await c.call_tool("commit", {"ids": ["ADR-0001", "ADR-9999"], "message": "mixed"})
-        assert "not found: ADR-9999" in str(exc.value)
-
-    asyncio.run(go())
-
-
-# ---------------------------------------------------------------------------
 # regression — valid existing id still works (history)
 # ---------------------------------------------------------------------------
 
@@ -164,40 +134,6 @@ def test_revert_valid_id_still_works(tmp_path: Path) -> None:
             await c.call_tool("update", {"id": "ADR-0001", "body": "STATE_B"})
             r = await c.call_tool("revert", {"id": "ADR-0001", "ref": "HEAD~1"})
         assert "STATE_A" in (_tc(dict, r.structured_content))["item"]["body"]
-
-    asyncio.run(go())
-
-
-# ---------------------------------------------------------------------------
-# regression — valid existing id still works (commit)
-# ---------------------------------------------------------------------------
-
-
-def test_commit_valid_id_still_works(tmp_path: Path) -> None:
-    """existing id commit still works."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            await c.call_tool("create", {"title": "T", "body": "B"})
-            p = tmp_path / "seg" / "ADR-0001.md"
-            p.write_text(p.read_text(encoding="utf-8") + "\nextra\n", encoding="utf-8")
-            r = await c.call_tool("commit", {"ids": ["ADR-0001"], "message": "checkpoint"})
-        assert (_tc(dict, r.structured_content))["ok"] is True
-        assert (_tc(dict, r.structured_content))["commit"] is not None
-        assert (_tc(dict, r.structured_content))["ids"] == ["ADR-0001"]
-
-    asyncio.run(go())
-
-
-def test_commit_no_dirty_still_works(tmp_path: Path) -> None:
-    """commit with clean state still returns ok and commit=None."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            await c.call_tool("create", {"title": "T", "body": "B"})
-            r = await c.call_tool("commit", {"ids": ["ADR-0001"], "message": "noop"})
-        assert (_tc(dict, r.structured_content))["ok"] is True
-        assert (_tc(dict, r.structured_content))["commit"] is None
 
     asyncio.run(go())
 

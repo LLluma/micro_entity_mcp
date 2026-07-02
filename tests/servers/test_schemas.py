@@ -1,5 +1,4 @@
 from src.servers.schemas import (
-    CommitResult,
     CommitsResult,
     CompleteResult,
     DiffResult,
@@ -35,10 +34,6 @@ def test_ok_id_commit_result_annotations():
 
 def test_complete_result_annotations():
     assert set(CompleteResult.__annotations__) == {"complete"}
-
-
-def test_commit_result_annotations():
-    assert set(CommitResult.__annotations__) == {"ok", "commit", "ids"}
 
 
 def test_supersede_result_annotations():

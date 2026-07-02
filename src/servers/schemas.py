@@ -31,12 +31,6 @@ class CompleteResult(TypedDict):
     complete: bool
 
 
-class CommitResult(TypedDict):
-    ok: bool
-    commit: str | None
-    ids: list[str]
-
-
 class SupersedeResult(TypedDict):
     superseded: dict
     superseding: dict

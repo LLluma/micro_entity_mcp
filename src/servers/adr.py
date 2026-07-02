@@ -24,7 +24,6 @@ from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 from servers.schemas import (
-    CommitResult,
     CommitsResult,
     DiffResult,
     HealthResult,
@@ -483,24 +482,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body adr {id}")
 
         return {"item": _entity_to_dict(updated), "commit": sha}
-
-    @mcp.tool(annotations={"destructiveHint": False})
-    def commit(
-        ids: Annotated[
-            list[str], Field(description="List of ADR ids to stage and commit together.")
-        ],
-        message: Annotated[str, Field(description="Commit message for the checkpoint.")],
-        project: str = "",
-    ) -> CommitResult:
-        """Stage and commit the named ADR files."""
-        store = _resolve_store(provider, project)
-        root = _require_repo(store)
-        for i in ids:
-            if not store.exists(i):
-                raise ToolError(f"not found: {i}")
-        paths = [store.path_for(i) for i in ids]
-        sha = vcs.commit_paths(root, paths, message)
-        return {"ok": True, "commit": sha, "ids": ids}
 
     @mcp.tool(annotations={"readOnlyHint": True})
     def history(

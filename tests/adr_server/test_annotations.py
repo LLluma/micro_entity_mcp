@@ -92,19 +92,3 @@ def test_patch_body_idempotent(tmp_path: Path) -> None:  # pyright: ignore[repor
         assert ann.idempotentHint is True
 
     anyio.run(_run)
-
-
-def test_commit_message_description(tmp_path: Path) -> None:
-    """commit's message param has a non-empty description in its inputSchema."""
-
-    async def _run() -> None:
-        async with _client(tmp_path) as c:
-            tools = await c.list_tools()
-        tool_map = {t.name: t for t in tools}
-
-        msg_desc = tool_map["commit"].inputSchema["properties"]["message"]["description"]
-        assert isinstance(msg_desc, str) and len(msg_desc) > 0, (
-            f"commit.message description expected non-empty string, got: {msg_desc!r}"
-        )
-
-    anyio.run(_run)
