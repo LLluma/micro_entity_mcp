@@ -2,9 +2,11 @@
 
 import os
 from pathlib import Path
+from typing import Annotated
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from pydantic import Field
 
 from micro_entity import vcs
 from micro_entity.entity import Entity
@@ -167,13 +169,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def create(
         body: str,
-        attributes: dict | None = None,
+        attributes: Annotated[
+            dict | None,
+            Field(
+                description="Free-form attribute bag; "
+                "reserved keys id/created/updated are rejected."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemCommitResult:
-        """Create a todo with the given body; auto-assigns id and order
-        and defaults status to "todo".  `attributes` adds extra fields
-        (reserved keys id/created/updated are rejected); `project` selects
-        the per-project partition (defaults to the workspace)."""
+        """Create a todo with the given body; auto-assigns id and order,
+        defaults status to "todo"."""
         store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
@@ -229,16 +235,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
         status: str | None = None,
         order: int | None = None,
         body: str | None = None,
-        attributes: dict | None = None,
+        attributes: Annotated[
+            dict | None,
+            Field(
+                description="Free-form attribute bag; "
+                "reserved keys id/created/updated are rejected."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemCommitResult:
-        """Update a todo's status, order, body, or arbitrary custom attributes by id;
-        other fields are preserved.
-
-        The ``attributes`` bag lets callers set any non-reserved keys (id, created,
-        updated are rejected). Explicit params (status, order) override the same
-        keys in ``attributes``.
-        """
+        """Update a todo's status, order, body, or attributes by id; other fields
+        are preserved."""
         store = _resolve_store(provider, project)
         # Build from a copy of the provided attributes bag
         patch: dict = dict(attributes) if attributes else {}
@@ -291,16 +298,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def query(
-        criteria: dict[str, list] | None = None,
+        criteria: Annotated[
+            dict[str, list] | None,
+            Field(
+                description="{key: [values]}: within-key OR, across-key AND; type-strict matching."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemsResult:
         """Return todos whose attributes match `criteria`.
 
-        `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
-        values. Matching is within-key OR, across-key AND — a record matches a key if its
-        attribute equals ANY listed value, and must match every key given. Matching is
-        type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
-        cross-match, so pass correctly-typed values.
+        ``{key: [values]}``: within-key OR, across-key AND; type-strict.
         """
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
@@ -343,13 +351,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def patch_body(
         id: str,
-        old: str,
-        new: str,
+        old: Annotated[
+            str,
+            Field(description="Literal text to match in the body; must occur exactly once."),
+        ],
+        new: Annotated[
+            str,
+            Field(description="Replacement text for the matched occurrence."),
+        ],
         project: str = "",
     ) -> ItemCommitResult:
-        """Replace a single literal occurrence of *old* with *new* inside the
-        entity's body.  Raises ``ToolError`` when the text is not found,
-        occurs more than once, or the entity id does not exist."""
+        """Replace a single literal occurrence of *old* with *new* inside the entity's body."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         try:
@@ -370,13 +382,15 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> CommitResult:
-        """Stage and commit the named todo files.
-
-        Returns the new commit SHA or ``None`` when there were no pending
-        changes.  Raises ``ToolError("storage is not under git")`` if the
-        store's partition directory is not inside a git repository.
-        """
+    def commit(
+        ids: Annotated[
+            list[str],
+            Field(description="List of entity ids to stage and commit together."),
+        ],
+        message: str,
+        project: str = "",
+    ) -> CommitResult:
+        """Stage and commit the named todo files."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         for i in ids:
@@ -390,15 +404,12 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def history(
         id: str,
         project: str = "",
-        limit: int = 20,
+        limit: Annotated[
+            int,
+            Field(description="Maximum number of commits to return (newest first)."),
+        ] = 20,
     ) -> CommitsResult:
-        """Return the git commit history for a single todo file.
-
-        Returns ``{"commits": [...]}`` where each entry is ``{"sha", "date",
-        "message"}`` ordered newest-first.  ``limit`` caps the number of
-        records returned (default 20).  Raises ``ToolError`` if the store is
-        not under git.
-        """
+        """Return the git commit history for a single todo file."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
@@ -408,20 +419,20 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def diff(
         id: str,
-        ref: str | None = None,
-        to: str | None = None,
+        ref: Annotated[
+            str | None,
+            Field(description="Git ref or sha; with no refs, shows the last change to the file."),
+        ] = None,
+        to: Annotated[
+            str | None,
+            Field(description="Optional second git ref; diff is ref..to (else ref..working-tree)."),
+        ] = None,
         project: str = "",
     ) -> DiffResult:
         """Return the unified diff for a todo file.
 
         With no refs (the default), shows the last commit that touched this
-        file versus its parent (or initial addition for a first commit).  When
-        *ref* is given, the diff is between *ref* and *to* (or the working
-        tree when *to* is omitted).
-
-        Returns ``{"diff": <text>}`` -- an empty string when there is no
-        difference.
-        """
+        file versus its parent."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
@@ -434,14 +445,15 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def revert(
         id: str,
-        ref: str,
+        ref: Annotated[
+            str,
+            Field(description="Git ref or sha to restore the entity's content from."),
+        ],
         project: str = "",
     ) -> ItemCommitResult:
         """Restore a todo entity to its contents at *ref* and commit forward.
 
-        Reads the file as committed at *ref*, writes it back byte-for-byte,
-        and creates a forward commit.  History is never rewritten.  Returns
-        the restored entity.
+        History is never rewritten.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
