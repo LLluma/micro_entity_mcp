@@ -7,9 +7,7 @@ from pathlib import Path
 from micro_entity.vcs import commit_paths, file_log
 
 
-def _build_history(
-    root: Path, file: Path, messages: list[str]
-) -> None:
+def _build_history(root: Path, file: Path, messages: list[str]) -> None:
     """Write *file* (or append) and commit with each *message*."""
     for i, msg in enumerate(messages):
         if i == 0:

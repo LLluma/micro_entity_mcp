@@ -35,6 +35,7 @@ def find_repo_root(path: Path) -> Path:
 
     return Path(result.stdout.strip()).resolve()
 
+
 def commit_paths(repo_root: Path, paths: list[Path], message: str) -> str | None:
     """Stage and commit *paths* inside *repo_root*, returning the new commit SHA or ``None``.
 
@@ -122,6 +123,33 @@ def file_log(repo_root: Path, path: Path, limit: int) -> list[dict]:
         entries.append({"sha": sha, "date": date, "message": message})
 
     return entries
+
+
+def file_diff(repo_root: Path, path: Path, ref: str, to: str | None) -> str:
+    """Return the unified diff for *path* between git *ref* and *to*.
+
+    When *to* is ``None``, the diff is between *ref* and the working tree.
+    When *to* is given, the diff is between the two refs.
+
+    Returns the diff text (stdout). An empty string when there is no
+    difference is a valid result, not an error.
+    """
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+
+    cmd = ["git", "-C", str(repo_root), "diff", "--", rel]
+    if to is not None:
+        cmd.insert(4, ref)
+        cmd.insert(5, to)
+    else:
+        cmd.insert(4, ref)
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
 
 
 def read_at_ref(repo_root: Path, path: Path, ref: str) -> str:
