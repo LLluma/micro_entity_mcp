@@ -15,7 +15,7 @@ def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -
         async with _client(tmp_path) as c:
             # Create with default status "Proposed"
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "T",
@@ -42,7 +42,7 @@ def test_update_invalid_status_raises_tool_error(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "T",
@@ -83,7 +83,7 @@ def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0102", "title": "T", "body": "b"},
             )
             return await c.call_tool(
@@ -128,7 +128,7 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     async def go():
         async with Client(build_server(provider)) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0101", "title": "Fresh", "body": "body"},
             )
             before = (adr_dir / "seg" / "ADR-0101.md").read_text(encoding="utf-8")

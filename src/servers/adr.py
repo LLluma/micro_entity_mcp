@@ -142,7 +142,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"status": "ok", "status_values": sorted(STATUS_VALUES)}
 
     @mcp.tool
-    def add(
+    def create(
         id: str,
         title: str,
         body: str,
@@ -174,7 +174,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except FormError as e:
             raise ToolError(str(e)) from e
 
-        return _entity_to_dict(entity)
+        return {"item": _entity_to_dict(entity)}
 
     @mcp.tool
     def get(id: str, project: str = "") -> dict:

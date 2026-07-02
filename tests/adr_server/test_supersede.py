@@ -11,11 +11,11 @@ def test_supersede_sets_pointers(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "Old", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
             return await c.call_tool(
@@ -34,11 +34,11 @@ def test_supersede_status_is_clean_enum(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "Old", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
             return await c.call_tool(
@@ -56,7 +56,7 @@ def test_supersede_missing_old_raises(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
             return await c.call_tool(
@@ -73,7 +73,7 @@ def test_supersede_missing_new_raises(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "Old", "body": "b"},
             )
             return await c.call_tool(
@@ -94,11 +94,11 @@ def test_supersede_rolls_back_old_on_second_write_failure(
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "Old", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
 
@@ -177,7 +177,7 @@ def test_supersede_missing_old_leaves_new_untouched(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "New", "body": "b"},
             )
             new_path = tmp_path / "seg" / "ADR-0008.md"

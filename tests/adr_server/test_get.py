@@ -8,7 +8,7 @@ def test_get_returns_added_entity(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "T",

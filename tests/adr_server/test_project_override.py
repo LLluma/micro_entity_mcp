@@ -22,7 +22,7 @@ def test_default_segment_add_and_list(tmp_path: Path) -> None:
     async def go():
         provider = StoreProvider(tmp_path, "proj")
         async with Client(build_server(provider)) as c:
-            await c.call_tool("add", {"id": "ADR-0001", "title": "T", "body": "b"})
+            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "b"})
             result = await c.call_tool("list", {})
         return result
 
@@ -47,10 +47,10 @@ def test_project_override_isolation(tmp_path: Path) -> None:
         provider = StoreProvider(tmp_path, "proj")
         async with Client(build_server(provider)) as c:
             # Add in default segment (proj)
-            await c.call_tool("add", {"id": "ADR-0001", "title": "Proj item", "body": "body"})
+            await c.call_tool("create", {"id": "ADR-0001", "title": "Proj item", "body": "body"})
             # Add in '_shared' segment
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0002", "title": "Shared item", "body": "body", "project": "_shared"},
             )
             # Default list (proj) should see only the default item

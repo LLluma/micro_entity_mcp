@@ -8,7 +8,7 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "T",
@@ -17,7 +17,7 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
                 },
             )
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0008",
                     "title": "T",
@@ -39,11 +39,11 @@ def test_query_filter_by_status(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "T", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "T", "body": "b"},
             )
             await c.call_tool(
@@ -64,11 +64,11 @@ def test_query_empty_returns_all(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "T", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "T2", "body": "b2"},
             )
             return await c.call_tool("query", {})
@@ -81,7 +81,7 @@ def test_query_no_match_empty(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "T", "body": "b"},
             )
             return await c.call_tool(

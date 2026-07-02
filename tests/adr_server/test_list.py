@@ -22,11 +22,11 @@ def test_list_sorted_after_two_adds(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0008", "title": "Second added", "body": "b"},
             )
             await c.call_tool(
-                "add",
+                "create",
                 {"id": "ADR-0007", "title": "First added", "body": "b"},
             )
             return await c.call_tool("list", {})
@@ -94,7 +94,7 @@ def test_list_default_strips_body(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("add", {"id": "ADR-9001", "title": "T", "body": "b"})
+            await c.call_tool("create", {"id": "ADR-9001", "title": "T", "body": "b"})
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
@@ -111,7 +111,7 @@ def test_list_include_body_true_includes_body(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("add", {"id": "ADR-9002", "title": "T", "body": "b"})
+            await c.call_tool("create", {"id": "ADR-9002", "title": "T", "body": "b"})
             return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
@@ -127,7 +127,7 @@ def test_list_default_preserves_id_attributes(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-9003",
                     "title": "MyTitle",

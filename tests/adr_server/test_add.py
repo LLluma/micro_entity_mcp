@@ -10,7 +10,7 @@ def test_add_returns_entity_dict(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             return await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "Some decision",
@@ -19,7 +19,7 @@ def test_add_returns_entity_dict(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = r.data["item"]
     assert data["id"] == "ADR-0007"
     assert data["attributes"]["title"] == "Some decision"
     assert data["attributes"]["status"] == "Proposed"
@@ -30,7 +30,7 @@ def test_add_duplicate_id_raises_tool_error(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0008",
                     "title": "First",
@@ -38,7 +38,7 @@ def test_add_duplicate_id_raises_tool_error(tmp_path: Path) -> None:
                 },
             )
             result = await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0008",
                     "title": "Second",
@@ -55,7 +55,7 @@ def test_add_invalid_status_raises_tool_error(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             return await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0009",
                     "title": "t",
@@ -73,7 +73,7 @@ def test_add_rejects_reserved_created_attribute(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             return await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0011",
                     "title": "t",
@@ -92,7 +92,7 @@ def test_add_rejects_other_reserved_attributes(tmp_path: Path, reserved_key: str
     async def go():
         async with _client(tmp_path) as c:
             return await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0012",
                     "title": "t",
@@ -110,7 +110,7 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             return await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0010",
                     "title": "t",
@@ -120,5 +120,5 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    data = r.data
+    data = r.data["item"]
     assert data["attributes"]["status"] == "Accepted"

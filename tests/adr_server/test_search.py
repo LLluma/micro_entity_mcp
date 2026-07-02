@@ -8,7 +8,7 @@ def test_search_matches_body_substring(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0007",
                     "title": "T",
@@ -26,7 +26,7 @@ def test_search_matches_tag_value(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0008",
                     "title": "T2",
@@ -45,7 +45,7 @@ def test_search_case_insensitive(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0009",
                     "title": "Case test",
@@ -63,7 +63,7 @@ def test_search_no_match_returns_empty(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0010",
                     "title": "T",
@@ -80,7 +80,7 @@ def test_search_matches_title_attribute(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "add",
+                "create",
                 {
                     "id": "ADR-0009",
                     "title": "Persistence Layer",
