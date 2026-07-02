@@ -4,10 +4,11 @@ import os
 from datetime import UTC, datetime
 from datetime import date as date_cls
 from pathlib import Path
-from typing import cast
+from typing import Annotated, cast
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from pydantic import Field
 
 from micro_entity import vcs
 from micro_entity.codec import CommentedMap
@@ -206,13 +207,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         title: str,
         body: str,
-        attributes: dict | None = None,
+        attributes: Annotated[
+            dict | None,
+            Field(
+                description="Free-form frontmatter bag; "
+                "reserved keys id/created/updated are rejected."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemCommitResult:
         """Create an ADR with id, title, and body; default status
-        "Proposed".  `attributes` adds frontmatter fields (reserved
-        keys id/created/updated are rejected); `project` selects the
-        per-project partition (defaults to the workspace)."""
+        "Proposed".  Collision → error if id already exists."""
         store = _resolve_store(provider, project)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
@@ -274,7 +279,13 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         status: str | None = None,
         body: str | None = None,
-        attributes: dict | None = None,
+        attributes: Annotated[
+            dict | None,
+            Field(
+                description="Free-form frontmatter bag; "
+                "reserved keys id/created/updated are rejected."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemCommitResult:
         """Update an ADR's status, body, and/or attributes by id."""
@@ -355,7 +366,12 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def query(
-        criteria: dict[str, list] | None = None,
+        criteria: Annotated[
+            dict[str, list] | None,
+            Field(
+                description="{key: [values]}: within-key OR, across-key AND; type-strict matching."
+            ),
+        ] = None,
         project: str = "",
     ) -> ItemsResult:
         """Return ADRs whose attributes match `criteria`.
@@ -386,15 +402,15 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def patch_body(
         id: str,
-        old: str,
-        new: str,
+        old: Annotated[
+            str, Field(description="Literal text to match in the body; must occur exactly once.")
+        ],
+        new: Annotated[str, Field(description="Replacement text for the matched occurrence.")],
         project: str = "",
     ) -> ItemCommitResult:
         """Scoped, literal string replacement inside an ADR's body.
 
         Replaces exactly one occurrence of ``old`` with ``new``.
-        Raises ``ToolError`` when the id is missing, the text isn't
-        found, or the text appears more than once.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
@@ -424,13 +440,14 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> CommitResult:
-        """Stage and commit the named ADR files.
-
-        Returns the new commit SHA or ``None`` when there were no pending
-        changes.  Raises ``ToolError("storage is not under git")`` if the
-        store's partition directory is not inside a git repository.
-        """
+    def commit(
+        ids: Annotated[
+            list[str], Field(description="List of ADR ids to stage and commit together.")
+        ],
+        message: str,
+        project: str = "",
+    ) -> CommitResult:
+        """Stage and commit the named ADR files."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         for i in ids:
@@ -444,15 +461,11 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def history(
         id: str,
         project: str = "",
-        limit: int = 20,
+        limit: Annotated[
+            int, Field(description="Maximum number of commits to return (newest first).")
+        ] = 20,
     ) -> CommitsResult:
-        """Return the git commit history for a single ADR file.
-
-        Returns ``{"commits": [...]}`` where each entry has ``sha``,
-        ``date``, and ``message`` (newest-first).  ``limit`` caps the
-        number of records (default 20).  Raises ``ToolError`` when the
-        store is not under git.
-        """
+        """Return the git commit history for a single ADR file."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
@@ -462,19 +475,20 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def diff(
         id: str,
-        ref: str | None = None,
-        to: str | None = None,
+        ref: Annotated[
+            str | None,
+            Field(description="Git ref or sha; with no refs, shows the last change to the file."),
+        ] = None,
+        to: Annotated[
+            str | None,
+            Field(description="Optional second git ref; diff is ref..to (else ref..working-tree)."),
+        ] = None,
         project: str = "",
     ) -> DiffResult:
         """Return the unified diff for an ADR file.
 
         With no refs (the default), shows the last commit that touched this
-        file versus its parent (or initial addition for a first commit).  When
-        *ref* is given, the diff is between *ref* and *to* (or the working
-        tree when *to* is omitted).
-
-        Returns ``{"diff": <text>}`` -- an empty string when there is no
-        difference.
+        file versus its parent (or initial addition for a first commit).
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
@@ -488,15 +502,12 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def revert(
         id: str,
-        ref: str,
+        ref: Annotated[str, Field(description="Git ref or sha to restore the ADR's content from.")],
         project: str = "",
     ) -> ItemCommitResult:
         """Restore an ADR to its contents at *ref* and commit forward.
 
-        Reads the file as committed at *ref*, writes it back
-        byte-for-byte via ``atomic_write``, and creates a new forward
-        commit.  History is never rewritten.  Returns the restored
-        entity.
+        History is never rewritten.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
