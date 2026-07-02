@@ -68,3 +68,19 @@ def test_query_membership_or_within_key(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len(r.data["items"]) == 2
+
+
+def test_query_docstring_substrings(tmp_path: Path) -> None:
+    """Assert the query tool's docstring documents criteria shape, semantics,
+    and type-strict caveat."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            tools = await c.list_tools()
+            tool = next(t for t in tools if t.name == "query")
+            return tool.description
+
+    desc = str(asyncio.run(go()))
+    assert "{key: [values]}" in desc
+    assert "within-key OR, across-key AND" in desc
+    assert "type-strict" in desc

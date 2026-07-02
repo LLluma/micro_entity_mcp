@@ -299,8 +299,14 @@ def build_server(provider: StoreProvider) -> FastMCP:
         criteria: dict[str, list] | None = None,
         project: str = "",
     ) -> dict:
-        """Return ADRs whose attributes match `criteria`
-        (within-attribute OR, across-attribute AND)."""
+        """Return ADRs whose attributes match `criteria`.
+
+        `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
+        values. Matching is within-key OR, across-key AND — a record matches a key if its
+        attribute equals ANY listed value, and must match every key given. Matching is
+        type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
+        cross-match, so pass correctly-typed values.
+        """
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = query_entities(entities, criteria or {})
