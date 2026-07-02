@@ -109,8 +109,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool
     def health() -> dict:
-        """Health check; returns "ok" and the allowed status values
-        (todo, in-progress, done, blocked)."""
+        """Health check; returns "ok", the allowed status values
+        (todo, in-progress, done, blocked), and partition resolution
+        (base, segment, dir)."""
         seg = provider.default_segment
         if seg:
             try:
@@ -361,7 +362,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool(name="next")
     def next_tool(project: str = "") -> dict:
         """Return the first actionable todo (status todo or in-progress,
-        lowest order), or null if none."""
+        lowest order) as {"item": <entity>}, or {"item": null} if none."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
         actionable = [
