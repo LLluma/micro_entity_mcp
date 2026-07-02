@@ -75,6 +75,23 @@ def _entity_to_dict(entity: Entity) -> dict:
     return entity.model_dump(mode="json")
 
 
+def _entity_matches_text(entity: Entity, needle: str) -> bool:
+    """True if ``needle`` (case-insensitive) is a substring of the body or any
+    attribute value (stringified)."""
+    low = needle.lower()
+    if entity.body is not None and low in entity.body.lower():
+        return True
+    for value in entity.attributes.values():
+        if isinstance(value, list):
+            for v in value:
+                if low in str(v).lower():
+                    return True
+        else:
+            if low in str(value).lower():
+                return True
+    return False
+
+
 def _next_order(store: MarkdownStore) -> int:
     """Return max existing integer `order` attribute + 1, or 1 if none."""
     entities, _ = store.load_all()
@@ -311,6 +328,26 @@ def build_server(provider: StoreProvider) -> FastMCP:
         entities, _ = store.load_all()
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
+
+    @mcp.tool(annotations={"readOnlyHint": True})
+    def search(
+        text: str,
+        project: str = "",
+        include_body: bool = False,
+    ) -> ItemsResult:
+        """Case-insensitive full-text search over todo body and attributes.
+        When ``include_body`` is False (default), the ``body`` field is omitted
+        from each item."""
+        store = _resolve_store(provider, project)
+        entities, _ = store.load_all()
+        matched = [e for e in entities if _entity_matches_text(e, text)]
+        items: list[dict] = []
+        for e in matched:
+            d = _entity_to_dict(e)
+            if not include_body:
+                d.pop("body", None)
+            items.append(d)
+        return {"items": items}
 
     @mcp.tool(name="next", annotations={"readOnlyHint": True})
     def next_tool(project: str = "") -> ItemResult:
