@@ -8,7 +8,7 @@ from tests.todo_server.conftest import _client
 
 
 def test_delete_removes_item(tmp_path: Path) -> None:
-    """Create an item, delete it (assert returned {"deleted": <id>}),
+    """Create an item, delete it (assert returned {"ok": True, "id": <id>}),
     then get on that id raises ToolError (item is gone)."""
 
     async def go():
@@ -19,7 +19,7 @@ def test_delete_removes_item(tmp_path: Path) -> None:
             return deleted.data, item_id
 
     deleted_data, item_id = asyncio.run(go())
-    assert deleted_data == {"deleted": item_id}
+    assert deleted_data == {"ok": True, "id": item_id}
 
     # After deletion, get should raise ToolError
     async def get_after():

@@ -208,7 +208,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             store.delete(id)
         except NotFoundError as e:
             raise ToolError(str(e)) from e
-        return {"deleted": id}
+        return {"ok": True, "id": id}
 
     @mcp.tool(name="next")
     def next_tool(project: str = "") -> dict | None:
