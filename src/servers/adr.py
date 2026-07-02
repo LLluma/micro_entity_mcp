@@ -150,6 +150,20 @@ def build_server(provider: StoreProvider) -> FastMCP:
     mcp = FastMCP("adr")
 
     @mcp.tool
+    def commit(ids: list[str], message: str, project: str = "") -> dict:
+        """Stage and commit the named ADR files.
+
+        Returns the new commit SHA or ``None`` when there were no pending
+        changes.  Raises ``ToolError("storage is not under git")`` if the
+        store's partition directory is not inside a git repository.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        paths = [store.path_for(i) for i in ids]
+        sha = vcs.commit_paths(root, paths, message)
+        return {"ok": True, "commit": sha, "ids": ids}
+
+    @mcp.tool
     def health() -> dict:
         """Health check; returns "ok", allowed status values, and partition resolution."""
         seg = provider.default_segment

@@ -102,6 +102,7 @@ def test_revert_non_git_store_raises(tmp_path: Path) -> None:
     nogit = Path(tempfile.mkdtemp())
     try:
         server = build_server(StoreProvider(nogit, "test"))
+
         async def go_inner():
             async with Client(server) as c:
                 return await c.call_tool(
@@ -111,9 +112,7 @@ def test_revert_non_git_store_raises(tmp_path: Path) -> None:
         result = asyncio.run(go_inner())
         assert result.is_error is True
         content_list = result.content or []
-        errmsg = (
-            content_list[0].text if content_list and content_list[0].type == "text" else ""
-        )
+        errmsg = content_list[0].text if content_list and content_list[0].type == "text" else ""
         assert "storage is not under git" in errmsg
     finally:
         shutil.rmtree(nogit, ignore_errors=True)

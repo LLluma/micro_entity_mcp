@@ -116,21 +116,26 @@ def test_supersede_single_commit_touched_both_files(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("tool_name,args", [
-    ("create", {"id": "ADR-0001", "title": "T", "body": "B"}),
-    ("update", {"id": "ADR-0001", "status": "Accepted"}),
-    ("patch_body", {"id": "ADR-0001", "old": "x", "new": "y"}),
-    ("supersede", {"old_id": "ADR-0001", "new_id": "ADR-0002"}),
-])
+@pytest.mark.parametrize(
+    "tool_name,args",
+    [
+        ("create", {"id": "ADR-0001", "title": "T", "body": "B"}),
+        ("update", {"id": "ADR-0001", "status": "Accepted"}),
+        ("patch_body", {"id": "ADR-0001", "old": "x", "new": "y"}),
+        ("supersede", {"old_id": "ADR-0001", "new_id": "ADR-0002"}),
+    ],
+)
 def test_non_git_store_raises_tool_error(tmp_path: Path, tool_name: str, args: dict) -> None:
     nogit = tempfile.mkdtemp()
     provider = StoreProvider(Path(nogit), "seg")
     try:
         c = Client(build_server(provider))
+
         async def go():
             async with c:
                 r = await c.call_tool(tool_name, args, raise_on_error=False)
                 return r
+
         r = asyncio.run(go())
     finally:
         shutil.rmtree(nogit, ignore_errors=True)

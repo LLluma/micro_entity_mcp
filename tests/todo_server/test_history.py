@@ -65,9 +65,7 @@ def test_history_limit_caps_results(tmp_path: Path) -> None:
             await c.call_tool("update", {"id": item_id, "status": "in-progress"})
             await c.call_tool("update", {"id": item_id, "status": "done"})
 
-            result = await c.call_tool(
-                "history", {"id": item_id, "limit": 1}
-            )
+            result = await c.call_tool("history", {"id": item_id, "limit": 1})
             return result.data["commits"]
 
     commits = asyncio.run(go())
