@@ -26,6 +26,27 @@ from micro_entity.validation import FormError, validate_against_set
 # Module constants
 # ---------------------------------------------------------------------------
 
+ADR_INSTRUCTIONS = """\
+ADR profile: durable architecture-decision records. Ids are caller-supplied and
+human-meaningful (ADR-NNNN) and collisions are rejected; statuses are Proposed /
+Accepted / Superseded. The log is append-only: there is no delete or clear — a
+changed decision is a new record plus a Superseded status on the old one, via
+supersede.
+
+Every tool returns a JSON object. Conventions:
+- single entity -> {"item": {...}}
+- collection -> {"items": [...], "errors": [...]}
+- any tool that creates a commit adds "commit": "<sha>" (null on a no-op)
+
+Storage is git-backed: the partition directory must be inside a git repository,
+otherwise any store operation fails with "storage is not under git".
+
+The `project` argument selects the per-project partition (defaults to the
+workspace); `health` reports the resolved base / segment / dir.
+
+A missing id fails with "not found: {id}".
+"""
+
 STATUS_VALUES: set[str] = {"Proposed", "Accepted", "Superseded"}
 STATUS_KEY: str = "status"
 SUPERSEDES_KEY: str = "supersedes"
@@ -147,7 +168,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     All tools are registered inside this function so tests can inject a
     mock / temporary store.
     """
-    mcp = FastMCP("adr")
+    mcp = FastMCP("adr", instructions=ADR_INSTRUCTIONS)
 
     @mcp.tool
     def health() -> dict:
