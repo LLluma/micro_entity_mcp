@@ -52,19 +52,10 @@ def test_idempotent_update(tmp_path: Path) -> None:
 
 
 def test_destructive_false_tools(tmp_path: Path) -> None:
-    """patch_body and commit → destructiveHint=False; revert → destructiveHint=False."""
+    """patch_body and revert → destructiveHint=False."""
     by_name = _list_tools(tmp_path)
 
-    for name in ("patch_body", "commit", "revert"):
+    for name in ("patch_body", "revert"):
         tool = by_name[name]
         assert tool is not None
         assert tool.annotations.destructiveHint is False
-
-
-def test_commit_message_description(tmp_path: Path) -> None:
-    """commit.message param has a non-empty description in its JSON schema."""
-    by_name = _list_tools(tmp_path)
-    commit_tool = by_name["commit"]
-    assert commit_tool is not None
-    desc = commit_tool.inputSchema["properties"]["message"]["description"]
-    assert desc and isinstance(desc, str) and len(desc) > 0

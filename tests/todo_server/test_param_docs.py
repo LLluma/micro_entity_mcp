@@ -39,17 +39,6 @@ def test_query_criteria(tmp_path: Path) -> None:
     assert desc == ("{key: [values]}: within-key OR, across-key AND; type-strict matching.")
 
 
-def test_commit_ids(tmp_path: Path) -> None:
-    async def go():
-        async with _client(tmp_path) as c:
-            tools = await c.list_tools()
-            tool = next(t for t in tools if t.name == "commit")
-            return tool.inputSchema["properties"]["ids"]["description"]
-
-    desc = asyncio.run(go())
-    assert desc == "List of entity ids to stage and commit together."
-
-
 def test_diff_ref(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:

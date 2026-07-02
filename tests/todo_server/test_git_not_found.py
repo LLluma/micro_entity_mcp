@@ -63,24 +63,7 @@ def test_revert_not_found(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. commit with a nonexistent id → ToolError
-# ---------------------------------------------------------------------------
-
-
-def test_commit_not_found(tmp_path: Path) -> None:
-    """commit() with an id that was never created raises ToolError."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            with pytest.raises(ToolError) as exc:
-                await c.call_tool("commit", {"ids": ["9999"], "message": "nope"})
-            assert "not found: 9999" in str(exc.value)
-
-    asyncio.run(go())
-
-
-# ---------------------------------------------------------------------------
-# 5. deleted-but-historical id STILL works with history
+# 4. deleted-but-historical id STILL works with history
 # ---------------------------------------------------------------------------
 
 
@@ -194,26 +177,6 @@ def test_history_valid_id_still_works(tmp_path: Path) -> None:
 
     commits = asyncio.run(go())
     assert len(commits) >= 1
-
-
-def test_commit_valid_id_still_works(tmp_path: Path) -> None:
-    """commit on a valid existing id still returns ok+commit (may be None
-    when no pending changes — no regression)."""
-
-    async def go():
-        async with _client(tmp_path) as c:
-            await c.call_tool("create", {"body": "regression commit"})
-            result = await c.call_tool(
-                "commit",
-                {"ids": ["0001"], "message": "no-op"},
-            )
-            ok = (_tc(dict, result.structured_content))["ok"]
-            ids = (_tc(dict, result.structured_content))["ids"]
-            return ok, ids
-
-    ok, ids = asyncio.run(go())
-    assert ok is True
-    assert ids == ["0001"]
 
 
 def test_diff_valid_id_still_works(tmp_path: Path) -> None:
