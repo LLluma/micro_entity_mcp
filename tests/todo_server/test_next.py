@@ -17,8 +17,8 @@ def test_next_returns_lowest_order_actionable(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["attributes"]["order"] == 1
-    assert r.data["body"] == "item one"
+    assert r.data["item"]["attributes"]["order"] == 1
+    assert r.data["item"]["body"] == "item one"
 
 
 def test_next_skips_done_and_blocked(tmp_path: Path) -> None:
@@ -34,8 +34,8 @@ def test_next_skips_done_and_blocked(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["attributes"]["order"] == 3
-    assert r.data["id"] == "0003"
+    assert r.data["item"]["attributes"]["order"] == 3
+    assert r.data["item"]["id"] == "0003"
 
 
 def test_next_empty_partition_returns_none(tmp_path: Path) -> None:
@@ -46,7 +46,7 @@ def test_next_empty_partition_returns_none(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data is None
+    assert r.data["item"] is None
 
 
 def test_next_all_done_returns_none(tmp_path: Path) -> None:
@@ -59,4 +59,4 @@ def test_next_all_done_returns_none(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data is None
+    assert r.data["item"] is None

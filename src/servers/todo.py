@@ -211,7 +211,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"ok": True, "id": id}
 
     @mcp.tool(name="next")
-    def next_tool(project: str = "") -> dict | None:
+    def next_tool(project: str = "") -> dict:
         """Return the first actionable todo (status todo or in-progress,
         lowest order), or null if none."""
         store = _resolve_store(provider, project)
@@ -220,7 +220,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
         ]
         if not actionable:
-            return None
+            return {"item": None}
 
         def _sort_key(e: Entity):
             val = e.attributes.get(ORDER_KEY)
@@ -230,7 +230,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 return (1, 0)
 
         actionable.sort(key=_sort_key)
-        return _entity_to_dict(actionable[0])
+        return {"item": _entity_to_dict(actionable[0])}
 
     @mcp.tool
     def clear(project: str = "") -> dict:
