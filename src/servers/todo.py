@@ -198,7 +198,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             )
         except NotFoundError as e:
             raise ToolError(str(e)) from e
-        return _entity_to_dict(updated)
+        return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
     def delete(id: str, project: str = "") -> dict:

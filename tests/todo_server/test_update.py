@@ -22,7 +22,7 @@ def test_update_status_transition_persists(tmp_path: Path) -> None:
 
     created, updated = asyncio.run(go())
     assert created["attributes"]["status"] == "todo"
-    assert updated["attributes"]["status"] == "in-progress"
+    assert updated["item"]["attributes"]["status"] == "in-progress"
 
 
 def test_update_status_invalid_raises(tmp_path: Path) -> None:
@@ -57,7 +57,7 @@ def test_update_order_change_persists(tmp_path: Path) -> None:
             return updated.data, fetched.data
 
     updated, fetched = asyncio.run(go())
-    assert updated["attributes"]["order"] == 5
+    assert updated["item"]["attributes"]["order"] == 5
     assert fetched["item"]["attributes"]["order"] == 5
 
 
@@ -91,11 +91,11 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
     updated, fetched, original_body, original_status = asyncio.run(go())
 
     # Changed field
-    assert updated["attributes"]["order"] == 99
+    assert updated["item"]["attributes"]["order"] == 99
     assert fetched["item"]["attributes"]["order"] == 99
 
     # Unchanged fields in both update return and get'd entity
-    assert updated["body"] == original_body
-    assert updated["attributes"]["status"] == original_status
+    assert updated["item"]["body"] == original_body
+    assert updated["item"]["attributes"]["status"] == original_status
     assert fetched["item"]["body"] == original_body
     assert fetched["item"]["attributes"]["status"] == original_status
