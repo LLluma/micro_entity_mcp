@@ -5,7 +5,7 @@ import pytest
 from fastmcp import Client
 
 from micro_entity.partition import StoreProvider
-from servers.todo import build_server
+from servers.todo import _normalize_todo_id, build_server
 
 
 def _init_repo(p: Path) -> None:
@@ -35,4 +35,4 @@ def _ensure_repo(tmp_path: Path) -> None:
 
 def _client(tmp_path: Path) -> Client:
     """Build a client for tmp_path (git-init handled by _ensure_repo fixture)."""
-    return Client(build_server(StoreProvider(tmp_path, "test")))
+    return Client(build_server(StoreProvider(tmp_path, "test", normalize_id=_normalize_todo_id)))

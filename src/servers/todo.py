@@ -228,6 +228,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def get(id: str, project: str = "") -> ItemResult:
         """Fetch one todo entity by id."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         try:
             entity = store.get(id)
         except NotFoundError as e:
@@ -273,6 +274,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """Update a todo's status, order, body, or attributes by id; other fields
         are preserved."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         # Build from a copy of the provided attributes bag
         patch: dict = dict(attributes) if attributes else {}
         # Reject reserved keys
@@ -307,6 +309,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def delete(id: str, project: str = "") -> OkIdCommitResult:
         """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         try:
             store.delete(id)
@@ -407,6 +410,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     ) -> ItemCommitResult:
         """Replace a single literal occurrence of *old* with *new* inside the entity's body."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         try:
             current = store.get(id)
@@ -455,6 +459,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     ) -> CommitsResult:
         """Return the git commit history for a single todo file."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -478,6 +483,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         With no refs (the default), shows the last commit that touched this
         file versus its parent."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -500,6 +506,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         History is never rewritten.
         """
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -520,6 +527,7 @@ TODO_DIR = os.environ.get("TODO_DIR", str(Path.home() / ".micro_entity_todo"))
 _provider = StoreProvider(
     Path(TODO_DIR),
     resolve_segment(explicit=None, workspace=os.getcwd()),
+    normalize_id=_normalize_todo_id,
 )
 mcp = build_server(_provider)
 
