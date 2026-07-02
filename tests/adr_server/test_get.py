@@ -1,6 +1,9 @@
 import asyncio
 from pathlib import Path
 
+import pytest
+from fastmcp.exceptions import ToolError
+
 from tests.adr_server.conftest import _client
 
 
@@ -48,14 +51,10 @@ def test_get_legacy_migration(tmp_path: Path) -> None:
 def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
-            return await c.call_tool(
-                "get",
-                {"id": "ADR-9999"},
-                raise_on_error=False,
-            )
+            return await c.call_tool("get", {"id": "ADR-9999"})
 
-    r = asyncio.run(go())
-    assert r.is_error is True
+    with pytest.raises(ToolError, match=r"^not found: ADR-9999$"):
+        asyncio.run(go())
 
 
 def test_get_malformed_legacy_date_raises_tool_error(tmp_path: Path) -> None:

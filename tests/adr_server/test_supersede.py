@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from micro_entity.codec import parse_document
 from tests.adr_server.conftest import _client
@@ -62,11 +63,10 @@ def test_supersede_missing_old_raises(tmp_path: Path) -> None:
             return await c.call_tool(
                 "supersede",
                 {"old_id": "ADR-9999", "new_id": "ADR-0008"},
-                raise_on_error=False,
             )
 
-    r = asyncio.run(go())
-    assert r.is_error is True
+    with pytest.raises(ToolError, match=r"^not found: ADR-9999$"):
+        asyncio.run(go())
 
 
 def test_supersede_missing_new_raises(tmp_path: Path) -> None:
@@ -79,11 +79,10 @@ def test_supersede_missing_new_raises(tmp_path: Path) -> None:
             return await c.call_tool(
                 "supersede",
                 {"old_id": "ADR-0007", "new_id": "ADR-9999"},
-                raise_on_error=False,
             )
 
-    r = asyncio.run(go())
-    assert r.is_error is True
+    with pytest.raises(ToolError, match=r"^not found: ADR-9999$"):
+        asyncio.run(go())
 
 
 def test_supersede_rolls_back_old_on_second_write_failure(

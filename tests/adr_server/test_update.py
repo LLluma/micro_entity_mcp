@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 from micro_entity.codec import parse_document
 from micro_entity.partition import StoreProvider
@@ -71,11 +72,10 @@ def test_update_missing_id_raises_tool_error(tmp_path: Path) -> None:
                     "id": "ADR-9999",
                     "status": "Accepted",
                 },
-                raise_on_error=False,
             )
 
-    r = asyncio.run(go())
-    assert r.is_error is True
+    with pytest.raises(ToolError, match=r"^not found: ADR-9999$"):
+        asyncio.run(go())
 
 
 @pytest.mark.parametrize("reserved_key", ["created", "updated", "id"])

@@ -18,6 +18,7 @@ from micro_entity.partition import (
     resolve_segment,
 )
 from micro_entity.query import query as query_entities
+from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 
 # ---------------------------------------------------------------------------
@@ -195,7 +196,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """Fetch one ADR by id, migrating legacy date-only records."""
         store = _resolve_store(provider, project)
         if not store.exists(id):
-            raise ToolError(f"decision not found: {id}")
+            raise ToolError(f"not found: {id}")
         try:
             entity = store.get(id, normalize=_adr_normalize)
         except (FormError, ValueError) as e:
@@ -251,6 +252,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 body=body_arg,
                 normalize=_adr_normalize,
             )
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
@@ -267,7 +270,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             except FormError as e:
                 raise ToolError(str(e)) from None
             if not exists:
-                raise ToolError(f"decision not found: {ident}")
+                raise ToolError(f"not found: {ident}")
 
         old_original_text = store.path_for(old_id).read_text(encoding="utf-8")
 
