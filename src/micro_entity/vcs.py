@@ -34,3 +34,56 @@ def find_repo_root(path: Path) -> Path:
         ) from exc
 
     return Path(result.stdout.strip()).resolve()
+
+def commit_paths(repo_root: Path, paths: list[Path], message: str) -> str | None:
+    """Stage and commit *paths* inside *repo_root*, returning the new commit SHA or ``None``.
+
+    Returns ``None`` when none of the given paths have staged changes (i.e.
+    there is nothing to commit for those paths — no exception is raised).
+    """
+    # Stage exactly the given paths.
+    for p in paths:
+        subprocess.run(
+            ["git", "-C", str(repo_root), "add", "--", str(p)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    # Attempt the commit with identity flags so it works without user config.
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "-c",
+            "user.name=micro_entity",
+            "-c",
+            "user.email=micro_entity@localhost",
+            "commit",
+            "-m",
+            message,
+            "--",
+            *[str(p) for p in paths],
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        output = result.stdout + result.stderr
+        if "nothing to commit" in output or "no changes added" in output:
+            return None
+        raise subprocess.CalledProcessError(
+            result.returncode, result.args, result.stdout, result.stderr
+        )
+
+    # Return full SHA of HEAD.
+    sha_result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return sha_result.stdout.strip()
