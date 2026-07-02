@@ -1,6 +1,7 @@
 """ADR (Architecture Decision Record) server — exposes ADR management via FastMCP."""
 
 import os
+import re
 from datetime import UTC, datetime
 from datetime import date as date_cls
 from pathlib import Path
@@ -139,6 +140,20 @@ def _entity_matches_text(entity: Entity, needle: str) -> bool:
             if low in str(value).lower():
                 return True
     return False
+
+
+_next_adr_re = re.compile(r"^ADR-(\d+)$")
+
+
+def _next_adr_id(store: MarkdownStore) -> str:
+    """Return the next ADR id based on existing records."""
+    entities, _ = store.load_all(normalize=_adr_normalize)
+    max_n = 0
+    for e in entities:
+        m = _next_adr_re.match(e.id)
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    return f"ADR-{max_n + 1:04d}"
 
 
 # ---------------------------------------------------------------------------
