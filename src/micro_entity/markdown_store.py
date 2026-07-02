@@ -27,17 +27,23 @@ class MarkdownStore:
         *,
         segment: str | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        normalize_id: Callable[[str], str] = lambda s: s,
     ) -> None:
         resolved = Path(directory).resolve()
         if segment:
             resolved = resolved / segment
         self._directory = resolved
         self._clock = clock
+        self._normalize_id = normalize_id
         self._directory.mkdir(parents=True, exist_ok=True)
 
     @property
     def directory(self) -> Path:
         return self._directory
+
+    def normalize_id(self, id: str) -> str:
+        """Return the canonical form of *id* under this store's normalizer."""
+        return self._normalize_id(id)
 
     def _path_for(self, id: str) -> Path:
         """Resolve an entity id to a file path under the store directory.
@@ -46,6 +52,7 @@ class MarkdownStore:
 
         Raises ``FormError`` if *id* is invalid.
         """
+        id = self._normalize_id(id)
         validate_id(id)
         path = self._directory / f"{id}.md"
         # Ensure the resolved path stays inside the directory.
