@@ -143,7 +143,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     """
     mcp = FastMCP("todo", instructions=TODO_INSTRUCTIONS)
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def health() -> HealthResult:
         """Health check; returns "ok", the allowed status values
         (todo, in-progress, done, blocked), and partition resolution
@@ -165,7 +165,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "dir": dir_val,
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def create(
         body: str,
         attributes: Annotated[
@@ -197,7 +197,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create todo {new_id}")
         return {"item": _entity_to_dict(created), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def get(id: str, project: str = "") -> ItemResult:
         """Fetch one todo entity by id."""
         store = _resolve_store(provider, project)
@@ -207,7 +207,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"not found: {id}") from e
         return {"item": _entity_to_dict(entity)}
 
-    @mcp.tool(name="list")
+    @mcp.tool(name="list", annotations={"readOnlyHint": True})
     def list_items(project: str = "", include_body: bool = False) -> ListResult:
         """List all todos in the partition, plus any load errors.
 
@@ -228,7 +228,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
     def update(
         id: str,
         status: str | None = None,
@@ -276,7 +276,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(id)], f"update todo {id}")
         return {"item": _entity_to_dict(updated), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": True, "idempotentHint": True})
     def delete(id: str, project: str = "") -> OkIdCommitResult:
         """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
@@ -293,7 +293,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         n = store.clear()
         return {"ok": True, "cleared": n}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def query(
         criteria: Annotated[
             dict[str, list] | None,
@@ -312,7 +312,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
 
-    @mcp.tool(name="next")
+    @mcp.tool(name="next", annotations={"readOnlyHint": True})
     def next_tool(project: str = "") -> ItemResult:
         """Return the first actionable todo (status todo or in-progress,
         lowest order) as {"item": <entity>}, or {"item": null} if none."""
@@ -334,7 +334,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         actionable.sort(key=_sort_key)
         return {"item": _entity_to_dict(actionable[0])}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def is_complete(project: str = "") -> CompleteResult:
         """True when no todo is still open (todo/in-progress/blocked)."""
         store = _resolve_store(provider, project)
@@ -345,7 +345,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             )
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
     def patch_body(
         id: str,
         old: Annotated[
@@ -378,13 +378,13 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body todo {id}")
         return {"item": _entity_to_dict(updated), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def commit(
         ids: Annotated[
             list[str],
             Field(description="List of entity ids to stage and commit together."),
         ],
-        message: str,
+        message: Annotated[str, Field(description="Commit message for the checkpoint.")],
         project: str = "",
     ) -> CommitResult:
         """Stage and commit the named todo files."""
@@ -397,7 +397,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, paths, message)
         return {"ok": True, "commit": sha, "ids": ids}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def history(
         id: str,
         project: str = "",
@@ -413,7 +413,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"not found: {id}")
         return {"commits": vcs.file_log(root, store.path_for(id), limit)}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def diff(
         id: str,
         ref: Annotated[
@@ -439,7 +439,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         effective_ref = ref if ref is not None else "HEAD"
         return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def revert(
         id: str,
         ref: Annotated[
