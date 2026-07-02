@@ -262,6 +262,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
+        for i in ids:
+            if not store.exists(i):
+                raise ToolError(f"not found: {i}")
         paths = [store.path_for(i) for i in ids]
         sha = vcs.commit_paths(root, paths, message)
         return {"ok": True, "commit": sha, "ids": ids}
@@ -309,6 +312,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
+        if not vcs.path_in_history(root, store.path_for(id)):
+            raise ToolError(f"not found: {id}")
         entity_path = store.path_for(id)
         content = vcs.read_at_ref(root, entity_path, ref)
         store.atomic_write(entity_path, content)
@@ -342,6 +347,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
+        if not vcs.path_in_history(root, store.path_for(id)):
+            raise ToolError(f"not found: {id}")
         return {"diff": vcs.file_diff(root, store.path_for(id), ref, to)}
 
     @mcp.tool(name="next")
@@ -388,6 +395,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
+        if not vcs.path_in_history(root, store.path_for(id)):
+            raise ToolError(f"not found: {id}")
         return {"commits": vcs.file_log(root, store.path_for(id), limit)}
 
     @mcp.tool
