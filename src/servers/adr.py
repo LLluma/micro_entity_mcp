@@ -182,7 +182,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     """
     mcp = FastMCP("adr", instructions=ADR_INSTRUCTIONS)
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def health() -> HealthResult:
         """Health check; returns "ok", allowed status values, and partition resolution."""
         seg = provider.default_segment
@@ -202,7 +202,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "dir": dir_val,
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def create(
         id: str,
         title: str,
@@ -243,7 +243,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         return {"item": _entity_to_dict(entity), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def get(id: str, project: str = "") -> ItemResult:
         """Fetch one ADR by id, migrating legacy date-only records."""
         store = _resolve_store(provider, project)
@@ -256,7 +256,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         return {"item": _entity_to_dict(entity)}
 
-    @mcp.tool(name="list")
+    @mcp.tool(name="list", annotations={"readOnlyHint": True})
     def list_decisions(project: str = "", include_body: bool = False) -> ListResult:
         """List all ADRs in the partition; malformed records are quarantined
         into `errors`.  When ``include_body`` is False (default), the ``body``
@@ -274,7 +274,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
     def update(
         id: str,
         status: str | None = None,
@@ -319,7 +319,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         return {"item": _entity_to_dict(updated), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": True})
     def supersede(old_id: str, new_id: str, project: str = "") -> SupersedeResult:
         """Mark old_id Superseded (superseded_by=new_id) and record new_id
         as superseding it; atomic with rollback on failure."""
@@ -364,7 +364,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "commit": sha,
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def query(
         criteria: Annotated[
             dict[str, list] | None,
@@ -387,7 +387,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         matched = query_entities(entities, criteria or {})
         return {"items": [_entity_to_dict(e) for e in matched]}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def search(
         text: str,
         project: str = "",
@@ -399,7 +399,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         matched = [e for e in entities if _entity_matches_text(e, text)]
         return {"items": [_entity_to_dict(e) for e in matched]}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
     def patch_body(
         id: str,
         old: Annotated[
@@ -439,12 +439,12 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         return {"item": _entity_to_dict(updated), "commit": sha}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def commit(
         ids: Annotated[
             list[str], Field(description="List of ADR ids to stage and commit together.")
         ],
-        message: str,
+        message: Annotated[str, Field(description="Commit message for the checkpoint.")],
         project: str = "",
     ) -> CommitResult:
         """Stage and commit the named ADR files."""
@@ -457,7 +457,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, paths, message)
         return {"ok": True, "commit": sha, "ids": ids}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def history(
         id: str,
         project: str = "",
@@ -472,7 +472,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"not found: {id}")
         return {"commits": vcs.file_log(root, store.path_for(id), limit)}
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True})
     def diff(
         id: str,
         ref: Annotated[
@@ -499,7 +499,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         effective_ref = ref if ref is not None else "HEAD"
         return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
 
-    @mcp.tool
+    @mcp.tool(annotations={"destructiveHint": False})
     def revert(
         id: str,
         ref: Annotated[str, Field(description="Git ref or sha to restore the ADR's content from.")],
