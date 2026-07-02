@@ -95,8 +95,8 @@ class TestStore:
         def delete(self, id: str) -> None:
             pass
 
-        def clear(self) -> None:
-            pass
+        def clear(self) -> int:
+            return 0
 
     def test_store_is_runtime_checkable_protocol(self) -> None:
         stub = self._StubStore()
@@ -126,6 +126,14 @@ class TestStore:
             method = getattr(Store, name)
             doc = method.__doc__ or ""
             assert doc.strip(), f"{name} missing docstring"
+
+    def test_store_clear_return_type_is_int(self) -> None:
+        """Store.clear protocol signature returns int."""
+        import inspect
+
+        sig = inspect.signature(Store.clear)
+        assert sig.return_annotation is not None
+        assert sig.return_annotation.__name__ == "int"
 
     def test_store_is_protocol_not_abc(self) -> None:
         """Store uses typing.Protocol, not abc.ABC."""

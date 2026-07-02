@@ -103,6 +103,9 @@ class Store(Protocol):
         """
         ...
 
-    def clear(self) -> None:
-        """Remove every entity in this store."""
+    def clear(self) -> int:
+        """Remove every entity in this store.
+
+        Returns the number of records removed.
+        """
         ...

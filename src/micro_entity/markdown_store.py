@@ -231,14 +231,19 @@ class MarkdownStore:
             raise NotFoundError(f"entity not found: {id}")
         path.unlink()
 
-    def clear(self) -> None:
+    def clear(self) -> int:
         """Remove every ``.md`` record file directly in the store directory.
 
         Leaves non-``.md`` files and subdirectories untouched.  No-op when
         the store is already empty.
+
+        Returns the number of records removed.
         """
         if not self._directory.is_dir():
-            return
+            return 0
+        count = 0
         for path in self._directory.glob("*.md"):
             if path.is_file():
                 path.unlink()
+                count += 1
+        return count

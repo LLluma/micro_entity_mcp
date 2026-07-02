@@ -15,8 +15,9 @@ class TestClear:
         store.create("b", attributes={})
         store.create("c", attributes={})
 
-        store.clear()
+        removed = store.clear()
 
+        assert removed == 3
         assert (tmp_path / "a.md").is_file() is False
         assert (tmp_path / "b.md").is_file() is False
         assert (tmp_path / "c.md").is_file() is False
@@ -30,7 +31,17 @@ class TestClear:
 
         store = MarkdownStore(tmp_path)
 
-        store.clear()  # should not raise
+        assert store.clear() == 0
+
+    def test_clear_nonexistent_directory_returns_zero(self, tmp_path: Path) -> None:
+        from micro_entity.markdown_store import MarkdownStore
+
+        dirpath = tmp_path / "does_not_exist"
+        store = MarkdownStore(dirpath)
+        # Remove the directory to test the path-not-dir case
+        dirpath.rmdir()
+
+        assert store.clear() == 0
 
     def test_clear_leaves_non_md_files_and_subdirs(self, tmp_path: Path) -> None:
         from micro_entity.markdown_store import MarkdownStore
@@ -43,8 +54,9 @@ class TestClear:
         subdir.mkdir()
         (subdir / "inside.md").write_text("should stay\n", encoding="utf-8")
 
-        store.clear()
+        removed = store.clear()
 
+        assert removed == 1
         assert (tmp_path / "record.md").is_file() is False
         assert tmp_path / "keep.txt"
         assert (subdir / "inside.md").read_text(encoding="utf-8") == "should stay\n"
