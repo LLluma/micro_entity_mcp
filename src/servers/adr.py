@@ -247,10 +247,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def get(id: str, project: str = "") -> ItemResult:
         """Fetch one ADR by id, migrating legacy date-only records."""
         store = _resolve_store(provider, project)
-        if not store.exists(id):
-            raise ToolError(f"not found: {id}")
         try:
             entity = store.get(id, normalize=_adr_normalize)
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
@@ -414,11 +414,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
-        if not store.exists(id):
-            raise ToolError(f"not found: {id}")
-
         try:
             entity = store.get(id, normalize=_adr_normalize)
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
