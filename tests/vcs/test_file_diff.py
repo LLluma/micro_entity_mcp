@@ -104,10 +104,10 @@ def test_file_diff_direction_pinned(tmp_path: Path) -> None:
     result = file_diff(tmp_path, f, old_ref, new_ref)
 
     # Must have removed "old" (a line starting with -, containing "old")
-    assert any(
-        line.startswith("-") and "old" in line for line in result.splitlines()
-    ), f"Expected a `-` line containing 'old', got:\\n{result}"
+    assert any(line.startswith("-") and "old" in line for line in result.splitlines()), (
+        f"Expected a `-` line containing 'old', got:\\n{result}"
+    )
     # Must have added "new" (a line starting with +, containing "new")
-    assert any(
-        line.startswith("+") and "new" in line for line in result.splitlines()
-    ), f"Expected a `+` line containing 'new', got:\\n{result}"
+    assert any(line.startswith("+") and "new" in line for line in result.splitlines()), (
+        f"Expected a `+` line containing 'new', got:\\n{result}"
+    )
