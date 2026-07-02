@@ -402,6 +402,22 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
+    def diff(
+        id: str,
+        ref: str = "HEAD",
+        to: str | None = None,
+        project: str = "",
+    ) -> dict:
+        """Return the unified diff for an ADR file between *ref* and *to*.
+
+        When *to* is ``None`` the diff is between *ref* and the working tree.
+        Returns ``{"diff": <text>}`` -- empty string when no difference.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        return {"diff": vcs.file_diff(root, store.path_for(id), ref, to)}
+
+    @mcp.tool
     def history(
         id: str,
         project: str = "",
