@@ -236,8 +236,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def clear(project: str = "") -> dict:
         """Delete all todos in the partition."""
         store = _resolve_store(provider, project)
-        store.clear()
-        return {"cleared": True}
+        n = store.clear()
+        return {"ok": True, "cleared": n}
 
     @mcp.tool
     def is_complete(project: str = "") -> bool:
