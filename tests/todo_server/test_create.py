@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -15,8 +17,8 @@ def test_create_defaults_status_and_order(tmp_path: Path) -> None:
             return await c.call_tool("create", {"body": "buy milk", "attributes": {}})
 
     r = asyncio.run(go())
-    assert set(r.data.keys()) == {"item", "commit"}
-    item = r.data["item"]
+    assert set(r.structured_content.keys()) == {"item", "commit"}
+    item = (_tc(dict, r.structured_content))["item"]
     assert item["attributes"]["status"] == "todo"
     assert item["attributes"]["order"] == 1
     assert item["body"] == "buy milk"
@@ -29,7 +31,7 @@ def test_create_order_increments(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             first = await c.call_tool("create", {"body": "first", "attributes": {}})
             second = await c.call_tool("create", {"body": "second", "attributes": {}})
-        return first.data, second.data
+        return first.structured_content, second.structured_content
 
     first, second = asyncio.run(go())
     assert set(first.keys()) == {"item", "commit"}
@@ -50,8 +52,8 @@ def test_create_honours_custom_status(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert set(r.data.keys()) == {"item", "commit"}
-    assert r.data["item"]["attributes"]["status"] == "in-progress"
+    assert set(r.structured_content.keys()) == {"item", "commit"}
+    assert (_tc(dict, r.structured_content))["item"]["attributes"]["status"] == "in-progress"
 
 
 def test_create_rejects_bogus_status(tmp_path: Path) -> None:
@@ -103,7 +105,8 @@ def test_create_returns_wrapped_dict(tmp_path: Path) -> None:
             return await c.call_tool("create", {"body": "x", "attributes": {}})
 
     r = asyncio.run(go())
-    data = r.data
+    data = r.structured_content
+    assert data is not None
     # Top-level keys: "item" plus additive "commit"
     assert set(data.keys()) == {"item", "commit"}
     # Top-level does NOT leak entity fields

@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.todo_server.conftest import _client
 
@@ -17,8 +18,8 @@ def test_query_filter_by_status(tmp_path: Path) -> None:
             return await c.call_tool("query", {"criteria": {"status": ["blocked"]}})
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 1
-    assert r.data["items"][0]["attributes"]["status"] == "blocked"
+    assert len((_tc(dict, r.structured_content))["items"]) == 1
+    assert (_tc(dict, r.structured_content))["items"][0]["attributes"]["status"] == "blocked"
 
 
 def test_query_empty_criteria_returns_all(tmp_path: Path) -> None:
@@ -31,7 +32,9 @@ def test_query_empty_criteria_returns_all(tmp_path: Path) -> None:
             await c.call_tool("create", {"body": "three", "attributes": {}})
             r1 = await c.call_tool("query", {"criteria": {}})
             r2 = await c.call_tool("query", {})
-            return r1.data["items"], r2.data["items"]
+            items1 = (_tc(dict, r1.structured_content))["items"]
+            items2 = (_tc(dict, r2.structured_content))["items"]
+            return items1, items2
 
     all_items, no_args_items = asyncio.run(go())
     assert len(all_items) == 3
@@ -47,7 +50,7 @@ def test_query_no_matches_returns_empty(tmp_path: Path) -> None:
             return await c.call_tool("query", {"criteria": {"status": ["nonexistent-status"]}})
 
     r = asyncio.run(go())
-    assert r.data["items"] == []
+    assert (_tc(dict, r.structured_content))["items"] == []
 
 
 def test_query_membership_or_within_key(tmp_path: Path) -> None:
@@ -67,7 +70,7 @@ def test_query_membership_or_within_key(tmp_path: Path) -> None:
             return await c.call_tool("query", {"criteria": {"status": ["todo", "done"]}})
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 2
+    assert len((_tc(dict, r.structured_content))["items"]) == 2
 
 
 def test_query_docstring_substrings(tmp_path: Path) -> None:

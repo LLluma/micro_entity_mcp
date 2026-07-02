@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp import Client
@@ -28,7 +29,7 @@ def test_create_commits_entity(tmp_path: Path) -> None:
                 "create",
                 {"body": "auto-commit create test"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
         root = vcs.find_repo_root(tmp_path)
         entity_path = root / "test" / f"{item_id}.md"
         entries = vcs.file_log(root, entity_path, limit=10)
@@ -48,7 +49,7 @@ def test_update_commits_entity_after_create(tmp_path: Path) -> None:
                 "create",
                 {"body": "update-auto-commit"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             await c.call_tool("update", {"id": item_id, "status": "done"})
         root = vcs.find_repo_root(tmp_path)
         entity_path = root / "test" / f"{item_id}.md"
@@ -90,7 +91,7 @@ def test_delete_commits_entity_deleted(tmp_path: Path) -> None:
                 "create",
                 {"body": "delete-auto-commit"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             await c.call_tool("delete", {"id": item_id})
         root = vcs.find_repo_root(tmp_path)
         entity_path = root / "test" / f"{item_id}.md"
@@ -113,7 +114,7 @@ def test_commit_touched_only_that_file(tmp_path: Path) -> None:
                 "create",
                 {"body": "single-file commit test"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             root = vcs.find_repo_root(tmp_path)
             entity_path = root / "test" / f"{item_id}.md"
             entries = vcs.file_log(root, entity_path, limit=3)

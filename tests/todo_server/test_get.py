@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -13,13 +15,13 @@ def test_get_returns_created_entity(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "get test item", "attributes": {}})
-            entity_id = created.data["item"]["id"]
+            entity_id = (_tc(dict, created.structured_content))["item"]["id"]
             result = await c.call_tool("get", {"id": entity_id})
-            return result.data
+            return result.structured_content
 
-    data = asyncio.run(go())
-    assert data["item"]["id"] == "0001"
-    assert data["item"]["body"] == "get test item"
+    structured_content = asyncio.run(go())
+    assert structured_content["item"]["id"] == "0001"
+    assert structured_content["item"]["body"] == "get test item"
 
 
 def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:

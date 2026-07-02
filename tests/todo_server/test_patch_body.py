@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -16,12 +18,12 @@ def test_patch_body_replaces_single_occurrence(tmp_path: Path) -> None:
                 "create",
                 {"body": "hello world hello", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             patched = await c.call_tool(
                 "patch_body",
                 {"id": item_id, "old": "world", "new": "universe"},
             )
-            return item_id, created.data, patched.data
+            return item_id, created.structured_content, patched.structured_content
 
     item_id, created, patched = asyncio.run(go())
 
@@ -42,12 +44,12 @@ def test_patch_body_preserves_unchanged_bytes(tmp_path: Path) -> None:
                 "create",
                 {"body": original_body, "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             patched = await c.call_tool(
                 "patch_body",
                 {"id": item_id, "old": "__bar__", "new": "-QUACK-"},
             )
-            return patched.data["item"]["body"]
+            return (_tc(dict, patched.structured_content))["item"]["body"]
 
     result_body = asyncio.run(go())
     assert result_body == "foo-QUACK-baz"

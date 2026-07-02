@@ -1,7 +1,10 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
+
 """Tests for the project/segment override on every DATA tool."""
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp import Client
@@ -27,8 +30,8 @@ def test_default_segment_create_and_list(tmp_path: Path) -> None:
         return result
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 1
-    assert r.data["items"][0]["body"] == "default item"
+    assert len((_tc(dict, r.structured_content))["items"]) == 1
+    assert (_tc(dict, r.structured_content))["items"][0]["body"] == "default item"
     # Verify file actually under tmp_path/proj/
     assert (tmp_path / "proj" / "0001.md").exists()
 
@@ -60,22 +63,22 @@ def test_project_override_isolation(tmp_path: Path) -> None:
         return list_default, list_other
 
     default_result, other_result = asyncio.run(go())
-    assert len(default_result.data["items"]) == 1
-    assert default_result.data["items"][0]["body"] == "proj item"
-    assert len(other_result.data["items"]) == 1
-    assert other_result.data["items"][0]["body"] == "other item"
+    assert len((_tc(dict, default_result.structured_content))["items"]) == 1
+    assert (_tc(dict, default_result.structured_content))["items"][0]["body"] == "proj item"
+    assert len((_tc(dict, other_result.structured_content))["items"]) == 1
+    assert (_tc(dict, other_result.structured_content))["items"][0]["body"] == "other item"
     # File locations
     assert (tmp_path / "proj" / "0001.md").exists()
     assert (tmp_path / "other" / "0001.md").exists()
 
 
 # ---------------------------------------------------------------------------
-# Test 3: default segment None → data tool with no project raises
+# Test 3: default segment None → structured_content tool with no project raises
 # ---------------------------------------------------------------------------
 
 
 def test_none_default_project_raises_tool_error(tmp_path: Path) -> None:
-    """StoreProvider(tmp_path, None): calling any data tool without project raises
+    """StoreProvider(tmp_path, None): calling any structured_content tool without project raises
     a tool error."""
 
     async def go():
@@ -101,5 +104,5 @@ def test_health_no_project_param(tmp_path: Path) -> None:
             return await c.call_tool("health", {})
 
     r = asyncio.run(go())
-    assert r.data["status"] == "ok"
-    assert "status_values" in r.data
+    assert (_tc(dict, r.structured_content))["status"] == "ok"
+    assert "status_values" in r.structured_content

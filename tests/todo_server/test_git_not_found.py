@@ -4,6 +4,7 @@ history / diff / revert."""
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -94,14 +95,14 @@ def test_history_deleted_id_still_works(tmp_path: Path) -> None:
                 "create",
                 {"body": "will be deleted"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             # Delete → auto-commits deletion
             await c.call_tool("delete", {"id": item_id})
 
             # History should return commits (create + delete), NOT a 404
             result = await c.call_tool("history", {"id": item_id})
-            return result.data["commits"], item_id
+            return (_tc(dict, result.structured_content))["commits"], item_id
 
     commits, item_id = asyncio.run(go())
     assert len(commits) >= 2, f"expected create+delete commits, got {len(commits)}: {commits}"
@@ -129,7 +130,7 @@ def test_revert_deleted_id_still_works(tmp_path: Path) -> None:
                 "create",
                 {"body": "STATE_A"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             await c.call_tool(
                 "update",
@@ -143,7 +144,7 @@ def test_revert_deleted_id_still_works(tmp_path: Path) -> None:
                 "revert",
                 {"id": item_id, "ref": "HEAD~1"},
             )
-            return result.data["item"]["body"], item_id
+            return (_tc(dict, result.structured_content))["item"]["body"], item_id
 
     body, item_id = asyncio.run(go())
     assert "STATE_B" in body, f"expected STATE_B, got {body!r}"
@@ -171,7 +172,7 @@ def test_diff_deleted_id_still_works(tmp_path: Path) -> None:
                 "diff",
                 {"id": "0001", "ref": "HEAD~1", "to": "HEAD"},
             )
-            return result.data["diff"]
+            return (_tc(dict, result.structured_content))["diff"]
 
     diff_text = asyncio.run(go())
     assert isinstance(diff_text, str)
@@ -189,7 +190,7 @@ def test_history_valid_id_still_works(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool("create", {"body": "regression test"})
             result = await c.call_tool("history", {"id": "0001"})
-            return result.data["commits"]
+            return (_tc(dict, result.structured_content))["commits"]
 
     commits = asyncio.run(go())
     assert len(commits) >= 1
@@ -206,7 +207,9 @@ def test_commit_valid_id_still_works(tmp_path: Path) -> None:
                 "commit",
                 {"ids": ["0001"], "message": "no-op"},
             )
-            return result.data["ok"], result.data["ids"]
+            ok = (_tc(dict, result.structured_content))["ok"]
+            ids = (_tc(dict, result.structured_content))["ids"]
+            return ok, ids
 
     ok, ids = asyncio.run(go())
     assert ok is True
@@ -223,7 +226,7 @@ def test_diff_valid_id_still_works(tmp_path: Path) -> None:
                 "diff",
                 {"id": "0001", "ref": "HEAD", "to": "HEAD"},
             )
-            return result.data["diff"]
+            return (_tc(dict, result.structured_content))["diff"]
 
     diff_text = asyncio.run(go())
     assert diff_text == ""  # same ref → empty
@@ -238,12 +241,12 @@ def test_revert_valid_id_still_works(tmp_path: Path) -> None:
                 "create",
                 {"body": "revert-me"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             result = await c.call_tool(
                 "revert",
                 {"id": item_id, "ref": "HEAD"},
             )
-            return result.data["item"]["body"]
+            return (_tc(dict, result.structured_content))["item"]["body"]
 
     body = asyncio.run(go())
     assert "revert-me" in body

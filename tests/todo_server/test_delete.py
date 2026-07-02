@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -14,9 +16,9 @@ def test_delete_removes_item(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "deleteme", "attributes": {}})
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             deleted = await c.call_tool("delete", {"id": item_id})
-            return deleted.data, item_id
+            return deleted.structured_content, item_id
 
     deleted_data, item_id = asyncio.run(go())
     assert "ok" in deleted_data

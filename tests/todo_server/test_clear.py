@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.todo_server.conftest import _client
 
@@ -15,7 +16,7 @@ def test_clear_with_n_todos_returns_count(tmp_path: Path) -> None:
             await c.call_tool("create", {"body": "third", "attributes": {}})
             cleared = await c.call_tool("clear", {})
             listed = await c.call_tool("list", {})
-            return cleared.data, listed.data["items"]
+            return cleared.structured_content, (_tc(dict, listed.structured_content))["items"]
 
     cleared_data, items = asyncio.run(go())
     assert cleared_data == {"ok": True, "cleared": 3}
@@ -28,7 +29,7 @@ def test_clear_empty_partition_returns_zero(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             cleared = await c.call_tool("clear", {})
-            return cleared.data
+            return cleared.structured_content
 
     cleared_data = asyncio.run(go())
     assert cleared_data == {"ok": True, "cleared": 0}

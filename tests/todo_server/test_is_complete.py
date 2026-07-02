@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.todo_server.conftest import _client
 
@@ -14,7 +15,7 @@ def test_is_complete_all_done(tmp_path: Path) -> None:
             return await c.call_tool("is_complete", {})
 
     r = asyncio.run(go())
-    assert r.data["complete"] is True
+    assert (_tc(dict, r.structured_content))["complete"] is True
 
 
 def test_is_complete_any_todo(tmp_path: Path) -> None:
@@ -26,7 +27,7 @@ def test_is_complete_any_todo(tmp_path: Path) -> None:
             return await c.call_tool("is_complete", {})
 
     r = asyncio.run(go())
-    assert r.data["complete"] is False
+    assert (_tc(dict, r.structured_content))["complete"] is False
 
 
 def test_is_complete_any_in_progress(tmp_path: Path) -> None:
@@ -39,7 +40,7 @@ def test_is_complete_any_in_progress(tmp_path: Path) -> None:
             return await c.call_tool("is_complete", {})
 
     r = asyncio.run(go())
-    assert r.data["complete"] is False
+    assert (_tc(dict, r.structured_content))["complete"] is False
 
 
 def test_is_complete_any_blocked(tmp_path: Path) -> None:
@@ -52,7 +53,7 @@ def test_is_complete_any_blocked(tmp_path: Path) -> None:
             return await c.call_tool("is_complete", {})
 
     r = asyncio.run(go())
-    assert r.data["complete"] is False
+    assert (_tc(dict, r.structured_content))["complete"] is False
 
 
 def test_is_complete_empty_partition(tmp_path: Path) -> None:
@@ -63,4 +64,4 @@ def test_is_complete_empty_partition(tmp_path: Path) -> None:
             return await c.call_tool("is_complete", {})
 
     r = asyncio.run(go())
-    assert r.data["complete"] is True
+    assert (_tc(dict, r.structured_content))["complete"] is True

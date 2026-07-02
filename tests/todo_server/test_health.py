@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from servers.todo import STATUS_VALUES
 from tests.todo_server.conftest import _client
@@ -11,7 +13,7 @@ def test_health_returns_ok(tmp_path: Path) -> None:
             return await c.call_tool("health", {})
 
     r = asyncio.run(go())
-    assert r.data["status"] == "ok"
+    assert (_tc(dict, r.structured_content))["status"] == "ok"
 
 
 def test_health_reports_status_values(tmp_path: Path) -> None:
@@ -20,7 +22,7 @@ def test_health_reports_status_values(tmp_path: Path) -> None:
             return await c.call_tool("health", {})
 
     r = asyncio.run(go())
-    assert set(r.data["status_values"]) == STATUS_VALUES
+    assert set((_tc(dict, r.structured_content))["status_values"]) == STATUS_VALUES
 
 
 def test_status_values_constant() -> None:
@@ -35,7 +37,7 @@ def test_health_returns_base_segment_dir(tmp_path: Path) -> None:
             return await c.call_tool("health", {})
 
     r = asyncio.run(go())
-    h = r.data
+    h = r.structured_content
 
     # base is a non-empty string
     assert isinstance(h["base"], str) and len(h["base"]) > 0

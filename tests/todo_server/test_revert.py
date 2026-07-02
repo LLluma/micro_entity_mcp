@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -26,15 +27,16 @@ def test_revert_restores_content_and_commits_forward(tmp_path: Path) -> None:
                 "create",
                 {"body": "STATE_A", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             updated = await c.call_tool("update", {"id": item_id, "body": "STATE_B"})
-            assert updated.data["item"]["body"] == "STATE_B", (
-                f"expected STATE_B after update, got {updated.data['item']['body']!r}"
-            )
+            updated_body = (_tc(dict, updated.structured_content))["item"]["body"]
+            assert updated_body == "STATE_B", f"expected STATE_B after update, got {updated_body!r}"
 
             reverted = await c.call_tool("revert", {"id": item_id, "ref": "HEAD~1"})
-            return item_id, reverted.data, created.data["item"]["body"]
+            created_body = (_tc(dict, created.structured_content))["item"]["body"]
+            result = _tc(dict, reverted.structured_content)
+            return item_id, result, created_body
 
     item_id, reverted, _ = asyncio.run(go())
 
@@ -75,10 +77,11 @@ def test_revert_to_head_is_noop_returns_item(tmp_path: Path) -> None:
                 "create",
                 {"body": "current content", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             reverted = await c.call_tool("revert", {"id": item_id, "ref": "HEAD"})
-            return item_id, reverted.data
+            result = _tc(dict, reverted.structured_content)
+            return item_id, result
 
     item_id, reverted = asyncio.run(go())
 

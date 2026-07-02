@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -17,8 +18,8 @@ def test_list_empty_partition(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    assert r.data["items"] == []
-    assert r.data["errors"] == []
+    assert (_tc(dict, r.structured_content))["items"] == []
+    assert (_tc(dict, r.structured_content))["errors"] == []
 
 
 def test_list_after_creating_two_items(tmp_path: Path) -> None:
@@ -31,8 +32,8 @@ def test_list_after_creating_two_items(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    assert len(r.data["items"]) == 2
-    assert r.data["errors"] == []
+    assert len((_tc(dict, r.structured_content))["items"]) == 2
+    assert (_tc(dict, r.structured_content))["errors"] == []
 
 
 def test_list_default_strips_body(tmp_path: Path) -> None:
@@ -44,13 +45,13 @@ def test_list_default_strips_body(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    item = r.data["items"][0]
+    item = (_tc(dict, r.structured_content))["items"][0]
     assert "body" not in item
     assert "id" in item
     assert "attributes" in item
     assert item["attributes"]["status"] == "todo"
     assert "order" in item["attributes"]
-    assert isinstance(r.data["errors"], list)
+    assert isinstance((_tc(dict, r.structured_content))["errors"], list)
 
 
 def test_list_include_body_true_keeps_body(tmp_path: Path) -> None:
@@ -62,10 +63,10 @@ def test_list_include_body_true_keeps_body(tmp_path: Path) -> None:
             return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
-    item = r.data["items"][0]
+    item = (_tc(dict, r.structured_content))["items"][0]
     assert "body" in item
     assert item["body"] == "secret todo body"
-    assert isinstance(r.data["errors"], list)
+    assert isinstance((_tc(dict, r.structured_content))["errors"], list)
 
 
 def test_list_scales_malformed_files_as_errors(tmp_path: Path) -> None:
@@ -79,5 +80,5 @@ def test_list_scales_malformed_files_as_errors(tmp_path: Path) -> None:
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
-    assert len(r.data["errors"]) == 1
-    assert r.data["errors"][0]["id"] == "bad"
+    assert len((_tc(dict, r.structured_content))["errors"]) == 1
+    assert (_tc(dict, r.structured_content))["errors"][0]["id"] == "bad"

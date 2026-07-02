@@ -4,6 +4,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -26,13 +27,13 @@ def test_history_returns_commits_after_create_and_updates(
                 "create",
                 {"body": "history test body"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             await c.call_tool("update", {"id": item_id, "status": "in-progress"})
             await c.call_tool("update", {"id": item_id, "status": "done"})
 
             result = await c.call_tool("history", {"id": item_id})
-            return result.data["commits"], item_id
+            return (_tc(dict, result.structured_content))["commits"], item_id
 
     commits, item_id = asyncio.run(go())
     assert len(commits) == 3, f"Expected 3 commits, got {len(commits)}"
@@ -60,13 +61,13 @@ def test_history_limit_caps_results(tmp_path: Path) -> None:
                 "create",
                 {"body": "limit test"},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
 
             await c.call_tool("update", {"id": item_id, "status": "in-progress"})
             await c.call_tool("update", {"id": item_id, "status": "done"})
 
             result = await c.call_tool("history", {"id": item_id, "limit": 1})
-            return result.data["commits"]
+            return (_tc(dict, result.structured_content))["commits"]
 
     commits = asyncio.run(go())
     assert len(commits) == 1
@@ -89,7 +90,7 @@ def test_history_non_git_store_raises() -> None:
 
         r = asyncio.run(go())
         assert r.is_error is True
-        error_str = str(r.data if hasattr(r, "data") and r.data else r)
+        error_str = str(r.structured_content if r.structured_content else r)
         assert "storage is not under git" in error_str
     finally:
         shutil.rmtree(nogit, ignore_errors=True)

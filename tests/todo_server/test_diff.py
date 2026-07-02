@@ -1,9 +1,12 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
+
 """Tests for the ``diff`` tool on the todo server."""
 
 import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast as _tc
 
 from fastmcp import Client
 
@@ -23,7 +26,7 @@ def test_diff_returns_diff_between_created_and_updated(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             r1 = await c.call_tool("create", {"body": "original body text"})
-            idx = r1.data["item"]["id"]
+            idx = (_tc(dict, r1.structured_content))["item"]["id"]
 
             # Update to a distinctive status and body
             await c.call_tool(
@@ -36,10 +39,10 @@ def test_diff_returns_diff_between_created_and_updated(tmp_path: Path) -> None:
                 "diff",
                 {"id": idx, "ref": "HEAD~1", "to": "HEAD"},
             )
-            return r.data
+            return r.structured_content
 
-    data = asyncio.run(go())
-    diff_text = data["diff"]
+    structured_content = asyncio.run(go())
+    diff_text = structured_content["diff"]
     assert diff_text != "", "diff between create and update must be non-empty"
     assert "CHANGED_BODY_XYZ" in diff_text
     assert "in-progress" in diff_text
@@ -55,11 +58,11 @@ def test_diff_same_refs_returns_empty(tmp_path: Path) -> None:
                 "diff",
                 {"id": "0001", "ref": "HEAD", "to": "HEAD"},
             )
-            return r.data
+            return r.structured_content
 
-    data = asyncio.run(go())
-    assert isinstance(data, dict)
-    assert data["diff"] == ""
+    structured_content = asyncio.run(go())
+    assert isinstance(structured_content, dict)
+    assert structured_content["diff"] == ""
 
 
 def test_diff_ref_works_tree(tmp_path: Path) -> None:
@@ -81,7 +84,7 @@ def test_diff_ref_works_tree(tmp_path: Path) -> None:
             return r
 
     r = asyncio.run(go())
-    diff_text = r.data["diff"]
+    diff_text = (_tc(dict, r.structured_content))["diff"]
     assert diff_text != "", "diff from HEAD~1 to WTP must be non-empty"
 
 
@@ -102,10 +105,10 @@ def test_diff_no_args_returns_last_change(tmp_path: Path) -> None:
                 {"id": "0001", "status": "in-progress", "body": "CHANGED_BODY_XYZ"},
             )
             r = await c.call_tool("diff", {"id": "0001"})
-            return r.data
+            return r.structured_content
 
-    data = asyncio.run(go())
-    diff_text = data["diff"]
+    structured_content = asyncio.run(go())
+    diff_text = structured_content["diff"]
     assert diff_text != "", "no-arg diff on updated todo must be non-empty (last change)"
     assert "CHANGED_BODY_XYZ" in diff_text
 
@@ -118,10 +121,10 @@ def test_diff_no_args_single_commit(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool("create", {"body": "initial content"})
             r = await c.call_tool("diff", {"id": "0001"})
-            return r.data
+            return r.structured_content
 
-    data = asyncio.run(go())
-    diff_text = data["diff"]
+    structured_content = asyncio.run(go())
+    diff_text = structured_content["diff"]
     assert diff_text != "", "no-arg diff on single-commit todo must be non-empty"
     assert "initial content" in diff_text
 
@@ -147,7 +150,9 @@ def test_non_git_store_raises() -> None:
 
         r = asyncio.run(go())
         assert r.is_error is True
-        error_str = str(r.data if hasattr(r, "data") and r.data else r)
+        error_str = str(
+            r.structured_content if hasattr(r, "structured_content") and r.structured_content else r
+        )
         assert "storage is not under git" in error_str
     finally:
         shutil.rmtree(nogit, ignore_errors=True)

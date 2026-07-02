@@ -1,5 +1,7 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
@@ -16,9 +18,9 @@ def test_update_status_transition_persists(tmp_path: Path) -> None:
                 "create",
                 {"body": "update status test", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             updated = await c.call_tool("update", {"id": item_id, "status": "in-progress"})
-            return created.data["item"], updated.data
+            return (_tc(dict, created.structured_content))["item"], updated.structured_content
 
     created, updated = asyncio.run(go())
     assert created["attributes"]["status"] == "todo"
@@ -34,9 +36,8 @@ def test_update_status_invalid_raises(tmp_path: Path) -> None:
                 "create",
                 {"body": "bad status", "attributes": {}},
             )
-            return await c.call_tool(
-                "update", {"id": created.data["item"]["id"], "status": "bogus"}
-            )
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
+            return await c.call_tool("update", {"id": item_id, "status": "bogus"})
 
     with pytest.raises(ToolError):
         asyncio.run(go())
@@ -51,10 +52,10 @@ def test_update_order_change_persists(tmp_path: Path) -> None:
                 "create",
                 {"body": "order test", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             updated = await c.call_tool("update", {"id": item_id, "order": 5})
             fetched = await c.call_tool("get", {"id": item_id})
-            return updated.data, fetched.data
+            return updated.structured_content, fetched.structured_content
 
     updated, fetched = asyncio.run(go())
     assert updated["item"]["attributes"]["order"] == 5
@@ -94,12 +95,18 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
                 "create",
                 {"body": "original body", "attributes": {"status": "done"}},
             )
-            item_id = created.data["item"]["id"]
-            original_body = created.data["item"]["body"]
-            original_status = created.data["item"]["attributes"]["status"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
+            original_body = (_tc(dict, created.structured_content))["item"]["body"]
+            sc = _tc(dict, created.structured_content)
+            original_status = sc["item"]["attributes"]["status"]
             updated = await c.call_tool("update", {"id": item_id, "order": 99})
             fetched = await c.call_tool("get", {"id": item_id})
-            return updated.data, fetched.data, original_body, original_status
+            return (
+                updated.structured_content,
+                fetched.structured_content,
+                original_body,
+                original_status,
+            )
 
     updated, fetched, original_body, original_status = asyncio.run(go())
 
@@ -128,13 +135,13 @@ def test_update_custom_attribute_changes(tmp_path: Path) -> None:
                 "create",
                 {"body": "priority test", "attributes": {"priority": "low"}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             await c.call_tool(
                 "update",
                 {"id": item_id, "attributes": {"priority": "high"}},
             )
             fetched = await c.call_tool("get", {"id": item_id})
-            return fetched.data
+            return fetched.structured_content
 
     result = asyncio.run(go())
     assert result["item"]["attributes"]["priority"] == "high"
@@ -149,9 +156,10 @@ def test_update_reserved_key_raises(tmp_path: Path) -> None:
                 "create",
                 {"body": "reserved test", "attributes": {}},
             )
+            item_id = _tc(dict, created.structured_content)["item"]["id"]
             return await c.call_tool(
                 "update",
-                {"id": created.data["item"]["id"], "attributes": {"id": "x"}},
+                {"id": item_id, "attributes": {"id": "x"}},
                 raise_on_error=False,
             )
 
@@ -170,7 +178,10 @@ def test_update_invalid_status_via_attributes_raises(tmp_path: Path) -> None:
             )
             return await c.call_tool(
                 "update",
-                {"id": created.data["item"]["id"], "attributes": {"status": "garbage"}},
+                {
+                    "id": (_tc(dict, created.structured_content))["item"]["id"],
+                    "attributes": {"status": "garbage"},
+                },
                 raise_on_error=False,
             )
 
@@ -187,13 +198,13 @@ def test_update_explicit_status_wins_over_attributes(tmp_path: Path) -> None:
                 "create",
                 {"body": "precedence test", "attributes": {}},
             )
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             await c.call_tool(
                 "update",
                 {"id": item_id, "status": "done", "attributes": {"status": "todo"}},
             )
             fetched = await c.call_tool("get", {"id": item_id})
-            return fetched.data["item"]["attributes"]["status"]
+            return (_tc(dict, fetched.structured_content))["item"]["attributes"]["status"]
 
     status = asyncio.run(go())
     assert status == "done"

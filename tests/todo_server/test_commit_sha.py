@@ -1,8 +1,10 @@
+# pyright: reportOptionalSubscript=false, reportOperatorIssue=false, reportOptionalMemberAccess=false
 """Verify that every committing tool returns an additive ``commit`` key
 with the git SHA (str) or ``None`` on no-op."""
 
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.todo_server.conftest import _client
 
@@ -19,7 +21,8 @@ def test_create_returns_commit_sha(tmp_path: Path) -> None:
             return await c.call_tool("create", {"body": "commit sha test", "attributes": {}})
 
     r = asyncio.run(go())
-    data = r.data
+    data = r.structured_content
+    assert data is not None
     assert "item" in data
     assert "commit" in data
     sha = data["commit"]
@@ -38,9 +41,9 @@ def test_update_returns_commit_sha(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "update sha test", "attributes": {}})
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             updated = await c.call_tool("update", {"id": item_id, "status": "done"})
-            return updated.data
+            return updated.structured_content
 
     data = asyncio.run(go())
     assert "item" in data
@@ -61,9 +64,9 @@ def test_patch_body_returns_commit_sha(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "patch old text", "attributes": {}})
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             patched = await c.call_tool("patch_body", {"id": item_id, "old": "old", "new": "new"})
-            return patched.data
+            return patched.structured_content
 
     data = asyncio.run(go())
     assert "item" in data
@@ -86,11 +89,11 @@ def test_revert_returns_commit_sha(tmp_path: Path) -> None:
             created = await c.call_tool("create", {"body": "revert target body", "attributes": {}})
             # HEAD~1 is just "state before update" — revert should still
             # return the item with a forward commit sha.
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             # Update to create a diff then revert to HEAD~1 relative to head
             await c.call_tool("update", {"id": item_id, "body": "revert target body"})
             reverted = await c.call_tool("revert", {"id": item_id, "ref": "HEAD"})
-            return reverted.data
+            return reverted.structured_content
 
     data = asyncio.run(go())
     assert "item" in data
@@ -110,9 +113,9 @@ def test_delete_returns_commit_sha(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "delete sha test", "attributes": {}})
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             deleted = await c.call_tool("delete", {"id": item_id})
-            return deleted.data, item_id
+            return deleted.structured_content, item_id
 
     data, item_id = asyncio.run(go())
     assert data["ok"] is True
@@ -134,9 +137,9 @@ def test_get_no_commit_key(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "get no commit", "attributes": {}})
-            item_id = created.data["item"]["id"]
+            item_id = (_tc(dict, created.structured_content))["item"]["id"]
             return await c.call_tool("get", {"id": item_id})
 
     r = asyncio.run(go())
-    assert "item" in r.data
-    assert "commit" not in r.data
+    assert "item" in r.structured_content
+    assert "commit" not in r.structured_content

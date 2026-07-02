@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import cast as _tc
 
 from tests.todo_server.conftest import _client
 
@@ -17,8 +18,8 @@ def test_next_returns_lowest_order_actionable(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["item"]["attributes"]["order"] == 1
-    assert r.data["item"]["body"] == "item one"
+    assert (_tc(dict, r.structured_content))["item"]["attributes"]["order"] == 1
+    assert (_tc(dict, r.structured_content))["item"]["body"] == "item one"
 
 
 def test_next_skips_done_and_blocked(tmp_path: Path) -> None:
@@ -34,8 +35,8 @@ def test_next_skips_done_and_blocked(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["item"]["attributes"]["order"] == 3
-    assert r.data["item"]["id"] == "0003"
+    assert (_tc(dict, r.structured_content))["item"]["attributes"]["order"] == 3
+    assert (_tc(dict, r.structured_content))["item"]["id"] == "0003"
 
 
 def test_next_empty_partition_returns_none(tmp_path: Path) -> None:
@@ -46,7 +47,7 @@ def test_next_empty_partition_returns_none(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["item"] is None
+    assert (_tc(dict, r.structured_content))["item"] is None
 
 
 def test_next_all_done_returns_none(tmp_path: Path) -> None:
@@ -59,4 +60,4 @@ def test_next_all_done_returns_none(tmp_path: Path) -> None:
             return await c.call_tool("next", {})
 
     r = asyncio.run(go())
-    assert r.data["item"] is None
+    assert (_tc(dict, r.structured_content))["item"] is None

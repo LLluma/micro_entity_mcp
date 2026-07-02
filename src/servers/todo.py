@@ -17,6 +17,19 @@ from micro_entity.partition import (
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
+from servers.schemas import (
+    ClearedResult,
+    CommitResult,
+    CommitsResult,
+    CompleteResult,
+    DiffResult,
+    HealthResult,
+    ItemCommitResult,
+    ItemResult,
+    ItemsResult,
+    ListResult,
+    OkIdCommitResult,
+)
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -130,7 +143,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     mcp = FastMCP("todo", instructions=TODO_INSTRUCTIONS)
 
     @mcp.tool
-    def health() -> dict:
+    def health() -> HealthResult:
         """Health check; returns "ok", the allowed status values
         (todo, in-progress, done, blocked), and partition resolution
         (base, segment, dir)."""
@@ -156,7 +169,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         body: str,
         attributes: dict | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Create a todo with the given body; auto-assigns id and order
         and defaults status to "todo".  `attributes` adds extra fields
         (reserved keys id/created/updated are rejected); `project` selects
@@ -180,7 +193,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(created), "commit": sha}
 
     @mcp.tool
-    def get(id: str, project: str = "") -> dict:
+    def get(id: str, project: str = "") -> ItemResult:
         """Fetch one todo entity by id."""
         store = _resolve_store(provider, project)
         try:
@@ -190,7 +203,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(entity)}
 
     @mcp.tool(name="list")
-    def list_items(project: str = "", include_body: bool = False) -> dict:
+    def list_items(project: str = "", include_body: bool = False) -> ListResult:
         """List all todos in the partition, plus any load errors.
 
         When ``include_body`` is False (default), the ``body`` key is stripped
@@ -218,7 +231,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         body: str | None = None,
         attributes: dict | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Update a todo's status, order, body, or arbitrary custom attributes by id;
         other fields are preserved.
 
@@ -258,7 +271,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def delete(id: str, project: str = "") -> dict:
+    def delete(id: str, project: str = "") -> OkIdCommitResult:
         """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
@@ -270,7 +283,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"ok": True, "id": id, "commit": sha}
 
     @mcp.tool
-    def clear(project: str = "") -> dict:
+    def clear(project: str = "") -> ClearedResult:
         """Delete all todos in the partition."""
         store = _resolve_store(provider, project)
         n = store.clear()
@@ -280,7 +293,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def query(
         criteria: dict[str, list] | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> ItemsResult:
         """Return todos whose attributes match `criteria`.
 
         `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
@@ -295,7 +308,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"items": [_entity_to_dict(e) for e in matched]}
 
     @mcp.tool(name="next")
-    def next_tool(project: str = "") -> dict:
+    def next_tool(project: str = "") -> ItemResult:
         """Return the first actionable todo (status todo or in-progress,
         lowest order) as {"item": <entity>}, or {"item": null} if none."""
         store = _resolve_store(provider, project)
@@ -317,7 +330,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(actionable[0])}
 
     @mcp.tool
-    def is_complete(project: str = "") -> dict:
+    def is_complete(project: str = "") -> CompleteResult:
         """True when no todo is still open (todo/in-progress/blocked)."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
@@ -333,7 +346,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         old: str,
         new: str,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Replace a single literal occurrence of *old* with *new* inside the
         entity's body.  Raises ``ToolError`` when the text is not found,
         occurs more than once, or the entity id does not exist."""
@@ -357,7 +370,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> dict:
+    def commit(ids: list[str], message: str, project: str = "") -> CommitResult:
         """Stage and commit the named todo files.
 
         Returns the new commit SHA or ``None`` when there were no pending
@@ -378,7 +391,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         project: str = "",
         limit: int = 20,
-    ) -> dict:
+    ) -> CommitsResult:
         """Return the git commit history for a single todo file.
 
         Returns ``{"commits": [...]}`` where each entry is ``{"sha", "date",
@@ -398,7 +411,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         ref: str | None = None,
         to: str | None = None,
         project: str = "",
-    ) -> dict:
+    ) -> DiffResult:
         """Return the unified diff for a todo file.
 
         With no refs (the default), shows the last commit that touched this
@@ -423,7 +436,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         id: str,
         ref: str,
         project: str = "",
-    ) -> dict:
+    ) -> ItemCommitResult:
         """Restore a todo entity to its contents at *ref* and commit forward.
 
         Reads the file as committed at *ref*, writes it back byte-for-byte,
