@@ -134,7 +134,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             entity = store.get(id)
         except NotFoundError as e:
             raise ToolError(str(e)) from e
-        return _entity_to_dict(entity)
+        return {"item": _entity_to_dict(entity)}
 
     @mcp.tool(name="list")
     def list_items(project: str = "", include_body: bool = False) -> dict:

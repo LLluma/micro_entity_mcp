@@ -58,7 +58,7 @@ def test_update_order_change_persists(tmp_path: Path) -> None:
 
     updated, fetched = asyncio.run(go())
     assert updated["attributes"]["order"] == 5
-    assert fetched["attributes"]["order"] == 5
+    assert fetched["item"]["attributes"]["order"] == 5
 
 
 def test_update_missing_id_raises(tmp_path: Path) -> None:
@@ -92,10 +92,10 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
 
     # Changed field
     assert updated["attributes"]["order"] == 99
-    assert fetched["attributes"]["order"] == 99
+    assert fetched["item"]["attributes"]["order"] == 99
 
     # Unchanged fields in both update return and get'd entity
     assert updated["body"] == original_body
     assert updated["attributes"]["status"] == original_status
-    assert fetched["body"] == original_body
-    assert fetched["attributes"]["status"] == original_status
+    assert fetched["item"]["body"] == original_body
+    assert fetched["item"]["attributes"]["status"] == original_status

@@ -18,8 +18,8 @@ def test_get_returns_created_entity(tmp_path: Path) -> None:
             return result.data
 
     data = asyncio.run(go())
-    assert data["id"] == "0001"
-    assert data["body"] == "get test item"
+    assert data["item"]["id"] == "0001"
+    assert data["item"]["body"] == "get test item"
 
 
 def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:
