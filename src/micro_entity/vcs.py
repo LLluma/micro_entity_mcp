@@ -183,6 +183,95 @@ def file_diff(repo_root: Path, path: Path, ref: str, to: str | None) -> str:
     return result.stdout
 
 
+def last_change_diff(repo_root: Path, path: Path) -> str:
+    """Return the unified diff of the last commit that touched *path*, versus
+    its parent.
+
+    Resolves the most recent commit touching the file and diffs that commit
+    against its parent, scoped to the file. If that commit has no parent (it is
+    the file's first commit), diffs against the empty tree so the file's initial
+    content shows as an addition. Returns the diff text (may be empty only if
+    there is genuinely no textual change).
+    """
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+
+    # Resolve the most recent commit that touched this file.
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "log",
+            "-1",
+            "--format=%H",
+            "--",
+            rel,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    sha = result.stdout.strip()
+    if not sha:
+        return ""
+
+    # Determine whether *sha* has a parent.
+    parent_result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"{sha}^",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    # Empty tree hash (git's placeholder for an empty tree).
+    empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+    if parent_result.returncode == 0:
+        # Has a parent — diff against parent.
+        diff_result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "diff",
+                f"{sha}~1",
+                sha,
+                "--",
+                rel,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return diff_result.stdout
+    else:
+        # First commit — diff against empty tree.
+        diff_result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "diff",
+                empty_tree,
+                sha,
+                "--",
+                rel,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return diff_result.stdout
+
+
 def read_at_ref(repo_root: Path, path: Path, ref: str) -> str:
     """Return file *path* content as text at git *ref*.
 
