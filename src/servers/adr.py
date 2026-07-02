@@ -219,9 +219,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"decision already exists: {id}") from None
         except FormError as e:
             raise ToolError(str(e)) from e
-        vcs.commit_paths(root, [store.path_for(id)], f"create adr {id}")
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"create adr {id}")
 
-        return {"item": _entity_to_dict(entity)}
+        return {"item": _entity_to_dict(entity), "commit": sha}
 
     @mcp.tool
     def get(id: str, project: str = "") -> dict:
@@ -289,9 +289,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"not found: {id}") from e
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
-        vcs.commit_paths(root, [store.path_for(id)], f"update adr {id}")
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"update adr {id}")
 
-        return {"item": _entity_to_dict(updated)}
+        return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
     def supersede(old_id: str, new_id: str, project: str = "") -> dict:
@@ -326,13 +326,17 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except Exception as exc:
             store.atomic_write(store.path_for(old_id), old_original_text)
             raise ToolError(str(exc)) from exc
-        vcs.commit_paths(
+        sha = vcs.commit_paths(
             root,
             [store.path_for(old_id), store.path_for(new_id)],
             f"supersede adr {old_id} -> {new_id}",
         )
 
-        return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
+        return {
+            "superseded": _entity_to_dict(old),
+            "superseding": _entity_to_dict(new),
+            "commit": sha,
+        }
 
     @mcp.tool
     def query(
@@ -400,9 +404,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
             updated = store.update(id, body=new_body, normalize=_adr_normalize)
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
-        vcs.commit_paths(root, [store.path_for(id)], f"patch_body adr {id}")
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body adr {id}")
 
-        return {"item": _entity_to_dict(updated)}
+        return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
     def revert(
@@ -424,8 +428,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         entity_path = store.path_for(id)
         content = vcs.read_at_ref(root, entity_path, ref)
         store.atomic_write(entity_path, content)
-        vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize))}
+        sha = vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
+        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize)), "commit": sha}
 
     @mcp.tool
     def diff(
