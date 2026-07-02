@@ -19,7 +19,11 @@ def test_delete_removes_item(tmp_path: Path) -> None:
             return deleted.data, item_id
 
     deleted_data, item_id = asyncio.run(go())
-    assert deleted_data == {"ok": True, "id": item_id}
+    assert "ok" in deleted_data
+    assert "id" in deleted_data
+    assert "commit" in deleted_data
+    assert deleted_data["ok"] is True
+    assert deleted_data["id"] == item_id
 
     # After deletion, get should raise ToolError
     async def get_after():

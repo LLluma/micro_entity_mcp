@@ -15,7 +15,7 @@ def test_create_defaults_status_and_order(tmp_path: Path) -> None:
             return await c.call_tool("create", {"body": "buy milk", "attributes": {}})
 
     r = asyncio.run(go())
-    assert list(r.data.keys()) == ["item"]
+    assert set(r.data.keys()) == {"item", "commit"}
     item = r.data["item"]
     assert item["attributes"]["status"] == "todo"
     assert item["attributes"]["order"] == 1
@@ -32,8 +32,8 @@ def test_create_order_increments(tmp_path: Path) -> None:
         return first.data, second.data
 
     first, second = asyncio.run(go())
-    assert list(first.keys()) == ["item"]
-    assert list(second.keys()) == ["item"]
+    assert set(first.keys()) == {"item", "commit"}
+    assert set(second.keys()) == {"item", "commit"}
     assert first["item"]["attributes"]["order"] == 1
     assert second["item"]["attributes"]["order"] == 2
     assert second["item"]["id"] > first["item"]["id"]
@@ -50,7 +50,7 @@ def test_create_honours_custom_status(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert list(r.data.keys()) == ["item"]
+    assert set(r.data.keys()) == {"item", "commit"}
     assert r.data["item"]["attributes"]["status"] == "in-progress"
 
 
@@ -104,8 +104,8 @@ def test_create_returns_wrapped_dict(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     data = r.data
-    # Top-level keys exactly "item"
-    assert set(data.keys()) == {"item"}
+    # Top-level keys: "item" plus additive "commit"
+    assert set(data.keys()) == {"item", "commit"}
     # Top-level does NOT leak entity fields
     assert "id" not in data
     assert "body" not in data

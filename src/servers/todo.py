@@ -153,8 +153,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         new_id = _next_id(store)
         root = _require_repo(store)
         created = store.create(new_id, attributes=attrs, body=body)
-        vcs.commit_paths(root, [store.path_for(new_id)], f"create todo {new_id}")
-        return {"item": _entity_to_dict(created)}
+        sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create todo {new_id}")
+        return {"item": _entity_to_dict(created), "commit": sha}
 
     @mcp.tool
     def get(id: str, project: str = "") -> dict:
@@ -249,8 +249,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
             )
         except NotFoundError as e:
             raise ToolError(f"not found: {id}") from e
-        vcs.commit_paths(root, [store.path_for(id)], f"update todo {id}")
-        return {"item": _entity_to_dict(updated)}
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"update todo {id}")
+        return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
     def commit(ids: list[str], message: str, project: str = "") -> dict:
@@ -295,8 +295,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         new_body = body.replace(old, new, 1)
         updated = store.update(id, body=new_body)
-        vcs.commit_paths(root, [store.path_for(id)], f"patch_body todo {id}")
-        return {"item": _entity_to_dict(updated)}
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body todo {id}")
+        return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
     def revert(
@@ -317,8 +317,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         entity_path = store.path_for(id)
         content = vcs.read_at_ref(root, entity_path, ref)
         store.atomic_write(entity_path, content)
-        vcs.commit_paths(root, [entity_path], f"revert todo {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id))}
+        sha = vcs.commit_paths(root, [entity_path], f"revert todo {id} to {ref}")
+        return {"item": _entity_to_dict(store.get(id)), "commit": sha}
 
     @mcp.tool
     def delete(id: str, project: str = "") -> dict:
@@ -329,8 +329,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
             store.delete(id)
         except NotFoundError as e:
             raise ToolError(f"not found: {id}") from e
-        vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
-        return {"ok": True, "id": id}
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
+        return {"ok": True, "id": id, "commit": sha}
 
     @mcp.tool
     def diff(
