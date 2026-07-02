@@ -92,6 +92,16 @@ def _entity_matches_text(entity: Entity, needle: str) -> bool:
     return False
 
 
+def _normalize_todo_id(raw: str) -> str:
+    """Return *raw* zero-padded to width 4 when digit-only, else unchanged.
+
+    Idempotent: ``_normalize_todo_id(_normalize_todo_id(x)) == _normalize_todo_id(x)``.
+    """
+    if raw.isdigit():
+        return f"{int(raw):04d}"
+    return raw
+
+
 def _next_order(store: MarkdownStore) -> int:
     """Return max existing integer `order` attribute + 1, or 1 if none."""
     entities, _ = store.load_all()
