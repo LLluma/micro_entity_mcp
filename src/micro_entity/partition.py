@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from micro_entity.markdown_store import MarkdownStore
@@ -34,9 +35,16 @@ def resolve_segment(*, explicit: str | None, workspace: str | None) -> str | Non
 class StoreProvider:
     """Resolve project/workspace to a cached ``MarkdownStore`` per segment."""
 
-    def __init__(self, base: Path, default_segment: str | None) -> None:
+    def __init__(
+        self,
+        base: Path,
+        default_segment: str | None,
+        *,
+        normalize_id: Callable[[str], str] = lambda s: s,
+    ) -> None:
         self._base = Path(base).resolve()
         self._default_segment = default_segment
+        self._normalize_id = normalize_id
         self._stores: dict[str, MarkdownStore] = {}
 
     @property
@@ -54,5 +62,7 @@ class StoreProvider:
         if not seg:
             raise UnresolvedSegmentError("no project segment could be resolved")
         if seg not in self._stores:
-            self._stores[seg] = MarkdownStore(self._base, segment=seg)
+            self._stores[seg] = MarkdownStore(
+                self._base, segment=seg, normalize_id=self._normalize_id
+            )
         return self._stores[seg]

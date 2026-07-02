@@ -177,3 +177,18 @@ def test_provider_base_resolves(tmp_path: Path) -> None:
     """base returns the resolved Path."""
     provider = StoreProvider(tmp_path, "seg")
     assert provider.base == tmp_path
+
+
+def test_provider_custom_normalize_id_threaded(tmp_path: Path) -> None:
+    """Provider with normalize_id passes callable to constructed MarkdownStore."""
+    norm_fn = lambda s: f"{int(s):04d}" if s.isdigit() else s  # noqa: E731
+    provider = StoreProvider(tmp_path, "def", normalize_id=norm_fn)
+    store = provider.get()
+    assert store.normalize_id("17") == "0017"
+
+
+def test_provider_default_normalize_id_is_identity(tmp_path: Path) -> None:
+    """Default StoreProvider (no normalize_id) passes identity to MarkdownStore."""
+    provider = StoreProvider(tmp_path, "def")
+    store = provider.get()
+    assert store.normalize_id("17") == "17"
