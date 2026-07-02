@@ -324,6 +324,44 @@ def build_server(provider: StoreProvider) -> FastMCP:
         matched = [e for e in entities if _entity_matches_text(e, text)]
         return {"items": [_entity_to_dict(e) for e in matched]}
 
+    @mcp.tool
+    def patch_body(
+        id: str,
+        old: str,
+        new: str,
+        project: str = "",
+    ) -> dict:
+        """Scoped, literal string replacement inside an ADR's body.
+
+        Replaces exactly one occurrence of ``old`` with ``new``.
+        Raises ``ToolError`` when the id is missing, the text isn't
+        found, or the text appears more than once.
+        """
+        store = _resolve_store(provider, project)
+        if not store.exists(id):
+            raise ToolError(f"not found: {id}")
+
+        try:
+            entity = store.get(id, normalize=_adr_normalize)
+        except (FormError, ValueError) as e:
+            raise ToolError(str(e)) from e
+
+        current_body = entity.body or ""
+        count = current_body.count(old)
+        if count == 0:
+            raise ToolError("patch text not found")
+        if count > 1:
+            raise ToolError("patch text not unique")
+
+        new_body = current_body.replace(old, new, 1)
+
+        try:
+            updated = store.update(id, body=new_body, normalize=_adr_normalize)
+        except (FormError, ValueError) as e:
+            raise ToolError(str(e)) from e
+
+        return {"item": _entity_to_dict(updated)}
+
     return mcp
 
 
