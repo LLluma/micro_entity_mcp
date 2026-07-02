@@ -50,7 +50,8 @@ def test_patch_body_preserves_frontmatter_order(tmp_path: Path) -> None:
     async def go():
         async with Client(build_server(provider)) as c:
             await c.call_tool(
-                "create", {"title": "Order", "body": "start END end"},
+                "create",
+                {"title": "Order", "body": "start END end"},
             )
             result = await c.call_tool(
                 "patch_body",

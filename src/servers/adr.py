@@ -404,13 +404,21 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def search(
         text: str,
         project: str = "",
+        include_body: bool = False,
     ) -> ItemsResult:
         """Case-insensitive full-text search over ADR body and
-        attributes."""
+        attributes.  When ``include_body`` is False (default), the ``body``
+        field is omitted from each item."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
         matched = [e for e in entities if _entity_matches_text(e, text)]
-        return {"items": [_entity_to_dict(e) for e in matched]}
+        items: list[dict] = []
+        for e in matched:
+            d = _entity_to_dict(e)
+            if not include_body:
+                d.pop("body", None)
+            items.append(d)
+        return {"items": items}
 
     @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
     def patch_body(

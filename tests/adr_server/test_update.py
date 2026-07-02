@@ -82,7 +82,8 @@ def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "create", {"title": "T", "body": "b"},
+                "create",
+                {"title": "T", "body": "b"},
             )
             return await c.call_tool(
                 "update",
@@ -126,7 +127,8 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     async def go():
         async with Client(build_server(provider)) as c:
             await c.call_tool(
-                "create", {"title": "Fresh", "body": "body"},
+                "create",
+                {"title": "Fresh", "body": "body"},
             )
             before = (adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8")
             before_fm, _ = parse_document(before)
