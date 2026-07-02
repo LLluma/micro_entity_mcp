@@ -142,6 +142,26 @@ def _entity_matches_text(entity: Entity, needle: str) -> bool:
     return False
 
 
+_adr_id_re = re.compile(r"^[Aa][Dd][Rr]-?(\d+)$")
+
+
+def _normalize_adr_id(raw: str) -> str:
+    """Canonicalize *raw* to ``ADR-NNNN`` form.
+
+    All-digits strings are treated as bare ordinal (``"7"`` -> ``"ADR-0007"``).
+    Cases of ``ADR``, ``adr``, ``ADr``, optionally followed by ``-``, then
+    digits are all normalised.  Anything else is returned unchanged.
+
+    Idempotent: ``_normalize_adr_id(_normalize_adr_id(s)) == _normalize_adr_id(s)``.
+    """
+    if raw.isdigit():
+        return f"ADR-{int(raw):04d}"
+    m = _adr_id_re.match(raw)
+    if m:
+        return f"ADR-{int(m.group(1)):04d}"
+    return raw
+
+
 _next_adr_re = re.compile(r"^ADR-(\d+)$")
 
 
