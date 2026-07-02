@@ -307,6 +307,23 @@ def build_server(provider: StoreProvider) -> FastMCP:
         vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
         return {"ok": True, "id": id}
 
+    @mcp.tool
+    def diff(
+        id: str,
+        ref: str = "HEAD",
+        to: str | None = None,
+        project: str = "",
+    ) -> dict:
+        """Return the unified diff for a todo file between *ref* and *to*.
+
+        When *to* is ``None`` the diff is between *ref* and the working tree.
+        Returns ``{"diff": <text>}`` -- an empty string when there is no
+        difference.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        return {"diff": vcs.file_diff(root, store.path_for(id), ref, to)}
+
     @mcp.tool(name="next")
     def next_tool(project: str = "") -> dict:
         """Return the first actionable todo (status todo or in-progress,
