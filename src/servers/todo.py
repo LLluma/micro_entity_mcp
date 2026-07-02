@@ -236,6 +236,33 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
+    def patch_body(
+        id: str,
+        old: str,
+        new: str,
+        project: str = "",
+    ) -> dict:
+        """Replace a single literal occurrence of *old* with *new* inside the
+        entity's body.  Raises ``ToolError`` when the text is not found,
+        occurs more than once, or the entity id does not exist."""
+        store = _resolve_store(provider, project)
+        try:
+            current = store.get(id)
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
+
+        body = current.body or ""
+        count = body.count(old)
+        if count == 0:
+            raise ToolError("patch text not found")
+        if count > 1:
+            raise ToolError("patch text not unique")
+
+        new_body = body.replace(old, new, 1)
+        updated = store.update(id, body=new_body)
+        return {"item": _entity_to_dict(updated)}
+
+    @mcp.tool
     def delete(id: str, project: str = "") -> dict:
         """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
