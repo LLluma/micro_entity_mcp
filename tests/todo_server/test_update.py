@@ -72,6 +72,19 @@ def test_update_missing_id_raises(tmp_path: Path) -> None:
         asyncio.run(go())
 
 
+def test_update_missing_id_message_is_normalized(tmp_path: Path) -> None:
+    """The ToolError message for a missing id is exactly 'not found: <id>'."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool("update", {"id": "missing-42", "status": "done"})
+
+    with pytest.raises(ToolError) as exc_info:
+        asyncio.run(go())
+
+    assert str(exc_info.value) == "not found: missing-42"
+
+
 def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
     """Update only order body and status remain unchanged in returned/get'd entity."""
 

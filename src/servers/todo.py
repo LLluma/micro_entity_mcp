@@ -148,7 +148,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         try:
             entity = store.get(id)
         except NotFoundError as e:
-            raise ToolError(str(e)) from e
+            raise ToolError(f"not found: {id}") from e
         return {"item": _entity_to_dict(entity)}
 
     @mcp.tool(name="list")
@@ -226,7 +226,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 body=body_arg,
             )
         except NotFoundError as e:
-            raise ToolError(str(e)) from e
+            raise ToolError(f"not found: {id}") from e
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
@@ -236,7 +236,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         try:
             store.delete(id)
         except NotFoundError as e:
-            raise ToolError(str(e)) from e
+            raise ToolError(f"not found: {id}") from e
         return {"ok": True, "id": id}
 
     @mcp.tool(name="next")
