@@ -6,6 +6,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
+from micro_entity import vcs
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
 from micro_entity.partition import (
@@ -68,6 +69,18 @@ def _next_id(store: MarkdownStore) -> str:
             if val >= max_n:
                 max_n = val
     return format(max_n + 1, "04d")
+
+
+def _require_repo(store: MarkdownStore) -> Path:
+    """Resolve the enclosing git repo root for the store's partition dir.
+
+    Raise ``ToolError("storage is not under git")`` if the dir is not under a
+    git repository.
+    """
+    try:
+        return vcs.find_repo_root(store.directory)
+    except vcs.NotAGitRepoError as e:
+        raise ToolError("storage is not under git") from e
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +151,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         attrs[STATUS_KEY] = status
         attrs[ORDER_KEY] = _next_order(store)
         new_id = _next_id(store)
+        root = _require_repo(store)
         created = store.create(new_id, attributes=attrs, body=body)
+        vcs.commit_paths(root, [store.path_for(new_id)], f"create todo {new_id}")
         return {"item": _entity_to_dict(created)}
 
     @mcp.tool
@@ -225,6 +240,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             except FormError as e:
                 raise ToolError(str(e)) from e
         body_arg = body if body is not None else UNSET
+        root = _require_repo(store)
         try:
             updated = store.update(
                 id,
@@ -233,6 +249,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             )
         except NotFoundError as e:
             raise ToolError(f"not found: {id}") from e
+        vcs.commit_paths(root, [store.path_for(id)], f"update todo {id}")
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
@@ -246,6 +263,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         entity's body.  Raises ``ToolError`` when the text is not found,
         occurs more than once, or the entity id does not exist."""
         store = _resolve_store(provider, project)
+        root = _require_repo(store)
         try:
             current = store.get(id)
         except NotFoundError as e:
@@ -260,16 +278,19 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         new_body = body.replace(old, new, 1)
         updated = store.update(id, body=new_body)
+        vcs.commit_paths(root, [store.path_for(id)], f"patch_body todo {id}")
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
     def delete(id: str, project: str = "") -> dict:
         """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
+        root = _require_repo(store)
         try:
             store.delete(id)
         except NotFoundError as e:
             raise ToolError(f"not found: {id}") from e
+        vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
         return {"ok": True, "id": id}
 
     @mcp.tool(name="next")
