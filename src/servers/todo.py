@@ -22,6 +22,28 @@ from micro_entity.validation import FormError, validate_against_set
 # Module constants
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Cross-cutting server instructions
+# ---------------------------------------------------------------------------
+
+TODO_INSTRUCTIONS = """\
+Todo profile: ephemeral run-state entities. Ids are machine-assigned sequential
+zero-padded numbers; statuses are todo / in-progress / done / blocked.
+
+Every tool returns a JSON object. Conventions:
+- single entity -> {"item": {...}} (or {"item": null} when absent)
+- collection -> {"items": [...], "errors": [...]}
+- mutation -> {"ok": true, ...}
+- any tool that creates a commit adds "commit": "<sha>" (null on a no-op)
+
+Storage is git-backed: the partition directory must be inside a git repository,
+otherwise any store operation fails with "storage is not under git".
+
+The `project` argument selects the per-project partition (defaults to the
+workspace); `health` reports the resolved base / segment / dir.
+
+A missing id fails with "not found: {id}".
+"""
 STATUS_VALUES: set[str] = {"todo", "in-progress", "done", "blocked"}
 STATUS_KEY: str = "status"
 ORDER_KEY: str = "order"
@@ -105,7 +127,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     All tools are registered inside this function so tests can inject a
     mock / temporary store.
     """
-    mcp = FastMCP("todo")
+    mcp = FastMCP("todo", instructions=TODO_INSTRUCTIONS)
 
     @mcp.tool
     def health() -> dict:
