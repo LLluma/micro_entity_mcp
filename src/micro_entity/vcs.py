@@ -89,6 +89,41 @@ def commit_paths(repo_root: Path, paths: list[Path], message: str) -> str | None
     return sha_result.stdout.strip()
 
 
+def file_log(repo_root: Path, path: Path, limit: int) -> list[dict]:
+    """Return the git log entries for *path* up to *limit* commits.
+
+    Each entry is ``{"sha": str, "date": str, "message": str}`` ordered
+    newest-first (git log default).
+    """
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "log",
+            f"--max-count={limit}",
+            "--format=%H%x1f%cI%x1f%s",
+            "--",
+            rel,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    entries: list[dict] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sha, date, message = line.split("\x1f", 2)
+        entries.append({"sha": sha, "date": date, "message": message})
+
+    return entries
+
+
 def read_at_ref(repo_root: Path, path: Path, ref: str) -> str:
     """Return file *path* content as text at git *ref*.
 
