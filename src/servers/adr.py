@@ -150,23 +150,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
     mcp = FastMCP("adr")
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> dict:
-        """Stage and commit the named ADR files.
-
-        Returns the new commit SHA or ``None`` when there were no pending
-        changes.  Raises ``ToolError("storage is not under git")`` if the
-        store's partition directory is not inside a git repository.
-        """
-        store = _resolve_store(provider, project)
-        root = _require_repo(store)
-        for i in ids:
-            if not store.exists(i):
-                raise ToolError(f"not found: {i}")
-        paths = [store.path_for(i) for i in ids]
-        sha = vcs.commit_paths(root, paths, message)
-        return {"ok": True, "commit": sha, "ids": ids}
-
-    @mcp.tool
     def health() -> dict:
         """Health check; returns "ok", allowed status values, and partition resolution."""
         seg = provider.default_segment
@@ -409,27 +392,40 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def revert(
-        id: str,
-        ref: str,
-        project: str = "",
-    ) -> dict:
-        """Restore an ADR to its contents at *ref* and commit forward.
+    def commit(ids: list[str], message: str, project: str = "") -> dict:
+        """Stage and commit the named ADR files.
 
-        Reads the file as committed at *ref*, writes it back
-        byte-for-byte via ``atomic_write``, and creates a new forward
-        commit.  History is never rewritten.  Returns the restored
-        entity.
+        Returns the new commit SHA or ``None`` when there were no pending
+        changes.  Raises ``ToolError("storage is not under git")`` if the
+        store's partition directory is not inside a git repository.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        for i in ids:
+            if not store.exists(i):
+                raise ToolError(f"not found: {i}")
+        paths = [store.path_for(i) for i in ids]
+        sha = vcs.commit_paths(root, paths, message)
+        return {"ok": True, "commit": sha, "ids": ids}
+
+    @mcp.tool
+    def history(
+        id: str,
+        project: str = "",
+        limit: int = 20,
+    ) -> dict:
+        """Return the git commit history for a single ADR file.
+
+        Returns ``{"commits": [...]}`` where each entry has ``sha``,
+        ``date``, and ``message`` (newest-first).  ``limit`` caps the
+        number of records (default 20).  Raises ``ToolError`` when the
+        store is not under git.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
-        entity_path = store.path_for(id)
-        content = vcs.read_at_ref(root, entity_path, ref)
-        store.atomic_write(entity_path, content)
-        sha = vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize)), "commit": sha}
+        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
 
     @mcp.tool
     def diff(
@@ -458,23 +454,27 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
 
     @mcp.tool
-    def history(
+    def revert(
         id: str,
+        ref: str,
         project: str = "",
-        limit: int = 20,
     ) -> dict:
-        """Return the git commit history for a single ADR file.
+        """Restore an ADR to its contents at *ref* and commit forward.
 
-        Returns ``{"commits": [...]}`` where each entry has ``sha``,
-        ``date``, and ``message`` (newest-first).  ``limit`` caps the
-        number of records (default 20).  Raises ``ToolError`` when the
-        store is not under git.
+        Reads the file as committed at *ref*, writes it back
+        byte-for-byte via ``atomic_write``, and creates a new forward
+        commit.  History is never rewritten.  Returns the restored
+        entity.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
-        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
+        entity_path = store.path_for(id)
+        content = vcs.read_at_ref(root, entity_path, ref)
+        store.atomic_write(entity_path, content)
+        sha = vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
+        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize)), "commit": sha}
 
     return mcp
 
