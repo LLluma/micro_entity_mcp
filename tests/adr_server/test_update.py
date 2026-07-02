@@ -30,7 +30,7 @@ def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -
                     "status": "Accepted",
                 },
             )
-        data = result.data
+        data = result.data["item"]
         assert data["attributes"]["status"] == "Accepted"
         # title and other attributes survive
         assert data["attributes"]["title"] == "T"
@@ -112,7 +112,7 @@ def test_update_legacy_record_migrates_timestamps(tmp_path: Path) -> None:
             )
 
     r = asyncio.run(go())
-    assert r.data["attributes"]["status"] == "Superseded"
+    assert r.data["item"]["attributes"]["status"] == "Superseded"
 
     fm, _ = parse_document((adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8"))
     assert "date" not in fm
@@ -143,7 +143,7 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
             return before_fm, after_fm, result
 
     before_fm, after_fm, result = asyncio.run(go())
-    assert result.data["attributes"]["status"] == "Accepted"
+    assert result.data["item"]["attributes"]["status"] == "Accepted"
     assert after_fm["created"] == before_fm["created"]
     assert after_fm["updated"] != before_fm["updated"]
 

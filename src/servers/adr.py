@@ -240,7 +240,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
-        return _entity_to_dict(updated)
+        return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
     def supersede(old_id: str, new_id: str, project: str = "") -> dict:
