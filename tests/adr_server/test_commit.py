@@ -20,7 +20,7 @@ def test_commit_pending_change(tmp_path: Path) -> None:
             # Create ADR via tool (auto-commits)
             await c.call_tool(
                 "create",
-                {"id": "ADR-0001", "title": "T", "body": "B"},
+                {"title": "T", "body": "B"},
             )
             # Dirty the file on disk
             p = tmp_path / "seg" / "ADR-0001.md"
@@ -50,7 +50,7 @@ def test_commit_no_pending_change(tmp_path: Path) -> None:
             # Create ADR via tool (auto-commits) — clean state
             await c.call_tool(
                 "create",
-                {"id": "ADR-0001", "title": "T", "body": "B"},
+                {"title": "T", "body": "B"},
             )
             # Commit with no dirty files
             result = await c.call_tool(

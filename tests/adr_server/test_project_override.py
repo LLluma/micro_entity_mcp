@@ -23,7 +23,7 @@ def test_default_segment_add_and_list(tmp_path: Path) -> None:
     async def go():
         provider = StoreProvider(tmp_path, "proj")
         async with Client(build_server(provider)) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "b"})
+            await c.call_tool("create", {"title": "T", "body": "b"})
             result = await c.call_tool("list", {})
         return result
 
@@ -48,11 +48,11 @@ def test_project_override_isolation(tmp_path: Path) -> None:
         provider = StoreProvider(tmp_path, "proj")
         async with Client(build_server(provider)) as c:
             # Add in default segment (proj)
-            await c.call_tool("create", {"id": "ADR-0001", "title": "Proj item", "body": "body"})
+            await c.call_tool("create", {"title": "Proj item", "body": "body"})
             # Add in '_shared' segment
             await c.call_tool(
                 "create",
-                {"id": "ADR-0002", "title": "Shared item", "body": "body", "project": "_shared"},
+                {"title": "Shared item", "body": "body", "project": "_shared"},
             )
             # Default list (proj) should see only the default item
             list_default = await c.call_tool("list", {})
@@ -69,7 +69,7 @@ def test_project_override_isolation(tmp_path: Path) -> None:
     assert _items2[0]["attributes"]["title"] == "Shared item"
     # File locations
     assert (tmp_path / "proj" / "ADR-0001.md").exists()
-    assert (tmp_path / "shared" / "ADR-0002.md").exists()
+    assert (tmp_path / "shared" / "ADR-0001.md").exists()
 
 
 # ---------------------------------------------------------------------------

@@ -14,16 +14,15 @@ def test_get_returns_added_entity(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "T",
                     "body": "prose",
                 },
             )
-            return await c.call_tool("get", {"id": "ADR-0007"})
+            return await c.call_tool("get", {"id": "ADR-0001"})
 
     r = asyncio.run(go())
     data = _tc(dict, r.structured_content)
-    assert data["item"]["id"] == "ADR-0007"
+    assert data["item"]["id"] == "ADR-0001"
     assert data["item"]["attributes"]["title"] == "T"
     assert data["item"]["body"] == "prose"
 

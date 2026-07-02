@@ -11,7 +11,6 @@ def test_search_matches_body_substring(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "T",
                     "body": "The quick brown fox",
                 },
@@ -20,7 +19,7 @@ def test_search_matches_body_substring(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0007"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
 
 
 def test_search_matches_tag_value(tmp_path: Path) -> None:
@@ -29,7 +28,6 @@ def test_search_matches_tag_value(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0008",
                     "title": "T2",
                     "body": "nothing",
                     "attributes": {"tags": ["durable", "schema"]},
@@ -39,7 +37,7 @@ def test_search_matches_tag_value(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0008"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
 
 
 def test_search_case_insensitive(tmp_path: Path) -> None:
@@ -48,7 +46,6 @@ def test_search_case_insensitive(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0009",
                     "title": "Case test",
                     "body": "The Quick Brown Fox",
                 },
@@ -57,7 +54,7 @@ def test_search_case_insensitive(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0009"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
 
 
 def test_search_no_match_returns_empty(tmp_path: Path) -> None:
@@ -66,7 +63,6 @@ def test_search_no_match_returns_empty(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0010",
                     "title": "T",
                     "body": "nothing here",
                 },
@@ -83,7 +79,6 @@ def test_search_matches_title_attribute(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0009",
                     "title": "Persistence Layer",
                     "body": "x",
                 },
@@ -92,4 +87,4 @@ def test_search_matches_title_attribute(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0009"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"

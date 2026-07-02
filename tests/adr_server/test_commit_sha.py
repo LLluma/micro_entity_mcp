@@ -20,7 +20,6 @@ def test_create_returns_commit_sha(tmp_path: Path) -> None:
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-SHA1",
                     "title": "Sha test create",
                     "body": "prose",
                 },
@@ -30,7 +29,7 @@ def test_create_returns_commit_sha(tmp_path: Path) -> None:
     data = _tc(dict, r.structured_content)
     assert "item" in data
     item = data["item"]
-    assert item["id"] == "ADR-SHA1"
+    assert item["id"] == "ADR-0001"
     assert "commit" in data
     sha = data["commit"]
     assert isinstance(sha, str)
@@ -47,11 +46,11 @@ def test_update_returns_commit_sha(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA2", "title": "Sha test update", "body": "state_a"},
+                {"title": "Sha test update", "body": "state_a"},
             )
             return await c.call_tool(
                 "update",
-                {"id": "ADR-SHA2", "status": "Accepted"},
+                {"id": "ADR-0001", "status": "Accepted"},
             )
 
     r = asyncio.run(go())
@@ -74,11 +73,11 @@ def test_patch_body_returns_commit_sha(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA3", "title": "Sha test patch", "body": "old word"},
+                {"title": "Sha test patch", "body": "old word"},
             )
             return await c.call_tool(
                 "patch_body",
-                {"id": "ADR-SHA3", "old": "old", "new": "new"},
+                {"id": "ADR-0001", "old": "old", "new": "new"},
             )
 
     r = asyncio.run(go())
@@ -101,15 +100,15 @@ def test_revert_returns_commit_sha(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA4", "title": "Sha test revert", "body": "STATE_A"},
+                {"title": "Sha test revert", "body": "STATE_A"},
             )
             await c.call_tool(
                 "update",
-                {"id": "ADR-SHA4", "body": "STATE_B"},
+                {"id": "ADR-0001", "body": "STATE_B"},
             )
             return await c.call_tool(
                 "revert",
-                {"id": "ADR-SHA4", "ref": "HEAD~1"},
+                {"id": "ADR-0001", "ref": "HEAD~1"},
             )
 
     r = asyncio.run(go())
@@ -132,15 +131,15 @@ def test_supersede_returns_commit_sha(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA5A", "title": "Old", "body": "old body"},
+                {"title": "Old", "body": "old body"},
             )
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA5B", "title": "New", "body": "new body"},
+                {"title": "New", "body": "new body"},
             )
             return await c.call_tool(
                 "supersede",
-                {"old_id": "ADR-SHA5A", "new_id": "ADR-SHA5B"},
+                {"old_id": "ADR-0001", "new_id": "ADR-0002"},
             )
 
     r = asyncio.run(go())
@@ -164,9 +163,9 @@ def test_get_returns_no_commit_key(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-SHA6", "title": "Get test", "body": "body"},
+                {"title": "Get test", "body": "body"},
             )
-            return await c.call_tool("get", {"id": "ADR-SHA6"})
+            return await c.call_tool("get", {"id": "ADR-0001"})
 
     r = asyncio.run(go())
     data = _tc(dict, r.structured_content)

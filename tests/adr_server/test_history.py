@@ -16,7 +16,7 @@ def test_history_returns_commits_newest_first(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0001", "title": "T", "body": "B"},
+                {"title": "T", "body": "B"},
             )
             await c.call_tool(
                 "update",
@@ -44,10 +44,10 @@ def test_history_with_limit_returns_exact_count(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0002", "title": "T", "body": "B"},
+                {"title": "T", "body": "B"},
             )
-            await c.call_tool("update", {"id": "ADR-0002", "body": "X"})
-            return await c.call_tool("history", {"id": "ADR-0002", "limit": 1})
+            await c.call_tool("update", {"id": "ADR-0001", "body": "X"})
+            return await c.call_tool("history", {"id": "ADR-0001", "limit": 1})
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["commits"]) == 1

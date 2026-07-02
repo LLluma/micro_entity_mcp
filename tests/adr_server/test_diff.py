@@ -17,7 +17,6 @@ def test_diff_between_ref_and_head(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0001",
                     "title": "T",
                     "body": "ORIGINAL_BODY",
                 },
@@ -65,7 +64,6 @@ def test_diff_same_ref_to_head_is_empty(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0002",
                     "title": "T",
                     "body": "BODY",
                 },
@@ -73,7 +71,7 @@ def test_diff_same_ref_to_head_is_empty(tmp_path: Path) -> None:
             r = await c.call_tool(
                 "diff",
                 {
-                    "id": "ADR-0002",
+                    "id": "ADR-0001",
                     "ref": "HEAD",
                     "to": "HEAD",
                 },
@@ -91,7 +89,6 @@ def test_diff_no_ref_after_update(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0100",
                     "title": "T",
                     "body": "ORIGINAL_BODY",
                 },
@@ -99,12 +96,12 @@ def test_diff_no_ref_after_update(tmp_path: Path) -> None:
             await c.call_tool(
                 "update",
                 {
-                    "id": "ADR-0100",
+                    "id": "ADR-0001",
                     "body": "UPDATED_BODY_ABC",
                     "status": "Accepted",
                 },
             )
-            r = await c.call_tool("diff", {"id": "ADR-0100"})
+            r = await c.call_tool("diff", {"id": "ADR-0001"})
         diff_text = (_tc(dict, r.structured_content))["diff"]
         assert isinstance(diff_text, str)
         assert diff_text  # non-empty — last commit changed body
@@ -121,12 +118,11 @@ def test_diff_no_ref_fresh_adr(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0200",
                     "title": "T",
                     "body": "FRESH_BODY",
                 },
             )
-            r = await c.call_tool("diff", {"id": "ADR-0200"})
+            r = await c.call_tool("diff", {"id": "ADR-0001"})
         diff_text = (_tc(dict, r.structured_content))["diff"]
         assert isinstance(diff_text, str)
         assert diff_text  # non-empty — initial commit shows file as addition
@@ -142,15 +138,15 @@ def test_diff_explicit_range(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0300", "title": "T", "body": "ORIGINAL"},
+                {"title": "T", "body": "ORIGINAL"},
             )
             await c.call_tool(
                 "update",
-                {"id": "ADR-0300", "body": "CHANGED", "status": "Accepted"},
+                {"id": "ADR-0001", "body": "CHANGED", "status": "Accepted"},
             )
             r = await c.call_tool(
                 "diff",
-                {"id": "ADR-0300", "ref": "HEAD~1"},
+                {"id": "ADR-0001", "ref": "HEAD~1"},
             )
         diff_text = (_tc(dict, r.structured_content))["diff"]
         assert diff_text  # non-empty

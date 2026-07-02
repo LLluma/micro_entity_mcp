@@ -24,11 +24,11 @@ def test_list_sorted_after_two_adds(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0008", "title": "Second added", "body": "b"},
+                {"title": "Second added", "body": "b"},
             )
             await c.call_tool(
                 "create",
-                {"id": "ADR-0007", "title": "First added", "body": "b"},
+                {"title": "First added", "body": "b"},
             )
             return await c.call_tool("list", {})
 
@@ -36,8 +36,8 @@ def test_list_sorted_after_two_adds(tmp_path: Path) -> None:
     items = (_tc(dict, r.structured_content))["items"]
     assert len(items) == 2
     assert (_tc(dict, r.structured_content))["errors"] == []
-    assert items[0]["id"] == "ADR-0007"
-    assert items[1]["id"] == "ADR-0008"
+    assert items[0]["id"] == "ADR-0001"
+    assert items[1]["id"] == "ADR-0002"
 
 
 def test_list_migrates_legacy_record(tmp_path: Path) -> None:
@@ -95,7 +95,7 @@ def test_list_default_strips_body(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-9001", "title": "T", "body": "b"})
+            await c.call_tool("create", {"title": "T", "body": "b"})
             return await c.call_tool("list", {})
 
     r = asyncio.run(go())
@@ -112,7 +112,7 @@ def test_list_include_body_true_includes_body(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-9002", "title": "T", "body": "b"})
+            await c.call_tool("create", {"title": "T", "body": "b"})
             return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
@@ -130,7 +130,6 @@ def test_list_default_preserves_id_attributes(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-9003",
                     "title": "MyTitle",
                     "body": "b",
                     "attributes": {"status": "Accepted"},
@@ -141,7 +140,7 @@ def test_list_default_preserves_id_attributes(tmp_path: Path) -> None:
     r = asyncio.run(go())
     items = (_tc(dict, r.structured_content))["items"]
     items_by_id = {it["id"]: it for it in items}
-    adr = items_by_id["ADR-9003"]
+    adr = items_by_id["ADR-0001"]
     assert "id" in adr
     assert "attributes" in adr
     assert "title" in adr["attributes"]

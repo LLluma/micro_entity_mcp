@@ -11,7 +11,6 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "T",
                     "body": "b",
                     "attributes": {"tags": ["durable"]},
@@ -20,7 +19,6 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0008",
                     "title": "T",
                     "body": "b",
                     "attributes": {"tags": ["ephemeral"]},
@@ -33,7 +31,7 @@ def test_query_filter_by_tags(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0007"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
 
 
 def test_query_filter_by_status(tmp_path: Path) -> None:
@@ -41,15 +39,15 @@ def test_query_filter_by_status(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0007", "title": "T", "body": "b"},
+                {"title": "T", "body": "b"},
             )
             await c.call_tool(
                 "create",
-                {"id": "ADR-0008", "title": "T", "body": "b"},
+                {"title": "T", "body": "b"},
             )
             await c.call_tool(
                 "update",
-                {"id": "ADR-0007", "status": "Accepted"},
+                {"id": "ADR-0001", "status": "Accepted"},
             )
             return await c.call_tool(
                 "query",
@@ -58,7 +56,7 @@ def test_query_filter_by_status(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert len((_tc(dict, r.structured_content))["items"]) == 1
-    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0007"
+    assert (_tc(dict, r.structured_content))["items"][0]["id"] == "ADR-0001"
 
 
 def test_query_empty_returns_all(tmp_path: Path) -> None:
@@ -66,11 +64,11 @@ def test_query_empty_returns_all(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0007", "title": "T", "body": "b"},
+                {"title": "T", "body": "b"},
             )
             await c.call_tool(
                 "create",
-                {"id": "ADR-0008", "title": "T2", "body": "b2"},
+                {"title": "T2", "body": "b2"},
             )
             return await c.call_tool("query", {})
 
@@ -83,7 +81,7 @@ def test_query_no_match_empty(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0007", "title": "T", "body": "b"},
+                {"title": "T", "body": "b"},
             )
             return await c.call_tool(
                 "query",

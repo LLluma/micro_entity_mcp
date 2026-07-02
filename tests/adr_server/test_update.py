@@ -19,7 +19,6 @@ def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "T",
                     "body": "b",
                 },
@@ -28,7 +27,7 @@ def test_update_status_transition_persists_and_preserves_title(tmp_path: Path) -
             result = await c.call_tool(
                 "update",
                 {
-                    "id": "ADR-0007",
+                    "id": "ADR-0001",
                     "status": "Accepted",
                 },
             )
@@ -46,7 +45,6 @@ def test_update_invalid_status_raises_tool_error(tmp_path: Path) -> None:
             await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "T",
                     "body": "b",
                 },
@@ -54,7 +52,7 @@ def test_update_invalid_status_raises_tool_error(tmp_path: Path) -> None:
             return await c.call_tool(
                 "update",
                 {
-                    "id": "ADR-0007",
+                    "id": "ADR-0001",
                     "status": "Bogus",
                 },
                 raise_on_error=False,
@@ -84,13 +82,12 @@ def test_update_rejects_reserved_attributes(tmp_path: Path, reserved_key: str) -
     async def go():
         async with _client(tmp_path) as c:
             await c.call_tool(
-                "create",
-                {"id": "ADR-0102", "title": "T", "body": "b"},
+                "create", {"title": "T", "body": "b"},
             )
             return await c.call_tool(
                 "update",
                 {
-                    "id": "ADR-0102",
+                    "id": "ADR-0001",
                     "attributes": {reserved_key: "x"},
                 },
                 raise_on_error=False,
@@ -129,17 +126,16 @@ def test_update_preserves_existing_created_timestamp(tmp_path: Path) -> None:
     async def go():
         async with Client(build_server(provider)) as c:
             await c.call_tool(
-                "create",
-                {"id": "ADR-0101", "title": "Fresh", "body": "body"},
+                "create", {"title": "Fresh", "body": "body"},
             )
-            before = (adr_dir / "seg" / "ADR-0101.md").read_text(encoding="utf-8")
+            before = (adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8")
             before_fm, _ = parse_document(before)
             result = await c.call_tool(
                 "update",
-                {"id": "ADR-0101", "status": "Accepted"},
+                {"id": "ADR-0001", "status": "Accepted"},
             )
             after_fm, _ = parse_document(
-                (adr_dir / "seg" / "ADR-0101.md").read_text(encoding="utf-8")
+                (adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8")
             )
             return before_fm, after_fm, result
 

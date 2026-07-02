@@ -25,11 +25,11 @@ def test_patch_body_single_occurrence_replaces_and_preserves(tmp_path: Path) -> 
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-X01", "title": "X", "body": "before SPICE after"},
+                {"title": "X", "body": "before SPICE after"},
             )
             result = await c.call_tool(
                 "patch_body",
-                {"id": "ADR-X01", "old": "SPICE", "new": "GLORY"},
+                {"id": "ADR-0001", "old": "SPICE", "new": "GLORY"},
             )
         data = (_tc(dict, result.structured_content))["item"]
         assert data["body"] == "before GLORY after"
@@ -50,19 +50,18 @@ def test_patch_body_preserves_frontmatter_order(tmp_path: Path) -> None:
     async def go():
         async with Client(build_server(provider)) as c:
             await c.call_tool(
-                "create",
-                {"id": "ADR-X02", "title": "Order", "body": "start END end"},
+                "create", {"title": "Order", "body": "start END end"},
             )
             result = await c.call_tool(
                 "patch_body",
-                {"id": "ADR-X02", "old": "END", "new": "DONE"},
+                {"id": "ADR-0001", "old": "END", "new": "DONE"},
             )
         data = (_tc(dict, result.structured_content))["item"]
 
         # body is patched
         assert data["body"] == "start DONE end"
         # no legacy ``date`` key in stored frontmatter
-        fm_text = (adr_dir / "seg" / "ADR-X02.md").read_text(encoding="utf-8")
+        fm_text = (adr_dir / "seg" / "ADR-0001.md").read_text(encoding="utf-8")
         assert "\ndate:" not in fm_text
         return data
 
@@ -79,11 +78,11 @@ def test_patch_body_old_absent_raises(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-X03", "title": "T", "body": "hello only world"},
+                {"title": "T", "body": "hello only world"},
             )
             await c.call_tool(
                 "patch_body",
-                {"id": "ADR-X03", "old": "MISSING", "new": "NOPE"},
+                {"id": "ADR-0001", "old": "MISSING", "new": "NOPE"},
             )
 
     with pytest.raises(ToolError, match="patch text not found"):
@@ -100,11 +99,11 @@ def test_patch_body_old_twice_raises(tmp_path: Path) -> None:
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-X04", "title": "T", "body": "alpha alpha beta"},
+                {"title": "T", "body": "alpha alpha beta"},
             )
             await c.call_tool(
                 "patch_body",
-                {"id": "ADR-X04", "old": "alpha", "new": "BETA"},
+                {"id": "ADR-0001", "old": "alpha", "new": "BETA"},
             )
 
     with pytest.raises(ToolError, match="patch text not unique"):
@@ -143,7 +142,7 @@ def test_patch_body_project_selection(tmp_path: Path) -> None:
         async with Client(build_server(provider)) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-PJ1", "title": "P", "body": "one two three"},
+                {"title": "P", "body": "one two three"},
             )
 
     asyncio.run(create_project())

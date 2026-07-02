@@ -25,7 +25,7 @@ def _repo_root(tmp_path: Path) -> Path:
 def test_create_auto_commits(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "B"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
 
     asyncio.run(go())
     root = _repo_root(tmp_path)
@@ -43,7 +43,7 @@ def test_create_auto_commits(tmp_path: Path) -> None:
 def test_create_and_update_auto_commits(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "B"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
             await c.call_tool("update", {"id": "ADR-0001", "status": "Accepted"})
 
     asyncio.run(go())
@@ -62,7 +62,7 @@ def test_create_and_update_auto_commits(tmp_path: Path) -> None:
 def test_create_and_patch_body_auto_commits(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "old body"})
+            await c.call_tool("create", {"title": "T", "body": "old body"})
             await c.call_tool(
                 "patch_body",
                 {"id": "ADR-0001", "old": "old body", "new": "new body"},
@@ -84,8 +84,8 @@ def test_create_and_patch_body_auto_commits(tmp_path: Path) -> None:
 def test_supersede_single_commit_touched_both_files(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "First", "body": "B1"})
-            await c.call_tool("create", {"id": "ADR-0002", "title": "Second", "body": "B2"})
+            await c.call_tool("create", {"title": "First", "body": "B1"})
+            await c.call_tool("create", {"title": "Second", "body": "B2"})
             await c.call_tool(
                 "supersede",
                 {"old_id": "ADR-0001", "new_id": "ADR-0002"},
@@ -119,7 +119,7 @@ def test_supersede_single_commit_touched_both_files(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "tool_name,args",
     [
-        ("create", {"id": "ADR-0001", "title": "T", "body": "B"}),
+        ("create", {"title": "T", "body": "B"}),
         ("update", {"id": "ADR-0001", "status": "Accepted"}),
         ("patch_body", {"id": "ADR-0001", "old": "x", "new": "y"}),
         ("supersede", {"old_id": "ADR-0001", "new_id": "ADR-0002"}),

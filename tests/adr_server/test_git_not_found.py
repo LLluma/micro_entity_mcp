@@ -91,7 +91,7 @@ def test_commit_mixed_ids_nonexistent_raises_not_found(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "B"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
             with pytest.raises(ToolError) as exc:
                 await c.call_tool("commit", {"ids": ["ADR-0001", "ADR-9999"], "message": "mixed"})
         assert "not found: ADR-9999" in str(exc.value)
@@ -109,7 +109,7 @@ def test_history_valid_id_still_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0001", "title": "T", "body": "B"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
             r = await c.call_tool("history", {"id": "ADR-0001"})
         assert len((_tc(dict, r.structured_content))["commits"]) >= 1
 
@@ -121,12 +121,12 @@ def test_history_update_then_history_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0002", "title": "T", "body": "B"})
-            await c.call_tool("update", {"id": "ADR-0002", "body": "B1"})
-            await c.call_tool("update", {"id": "ADR-0002", "body": "B2"})
-            r = await c.call_tool("history", {"id": "ADR-0002"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
+            await c.call_tool("update", {"id": "ADR-0001", "body": "B1"})
+            await c.call_tool("update", {"id": "ADR-0001", "body": "B2"})
+            r = await c.call_tool("history", {"id": "ADR-0001"})
         assert len((_tc(dict, r.structured_content))["commits"]) == 3
-        assert "update adr ADR-0002" in (_tc(dict, r.structured_content))["commits"][0]["message"]
+        assert "update adr ADR-0001" in (_tc(dict, r.structured_content))["commits"][0]["message"]
 
     asyncio.run(go())
 
@@ -141,9 +141,9 @@ def test_diff_valid_id_still_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0003", "title": "T", "body": "ORIGINAL"})
+            await c.call_tool("create", {"title": "T", "body": "ORIGINAL"})
             # dirty the working tree
-            r = await c.call_tool("diff", {"id": "ADR-0003", "ref": "HEAD"})
+            r = await c.call_tool("diff", {"id": "ADR-0001", "ref": "HEAD"})
         assert isinstance((_tc(dict, r.structured_content))["diff"], str)
         # no dirty yet → empty diff
 
@@ -160,9 +160,9 @@ def test_revert_valid_id_still_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0004", "title": "T", "body": "STATE_A"})
-            await c.call_tool("update", {"id": "ADR-0004", "body": "STATE_B"})
-            r = await c.call_tool("revert", {"id": "ADR-0004", "ref": "HEAD~1"})
+            await c.call_tool("create", {"title": "T", "body": "STATE_A"})
+            await c.call_tool("update", {"id": "ADR-0001", "body": "STATE_B"})
+            r = await c.call_tool("revert", {"id": "ADR-0001", "ref": "HEAD~1"})
         assert "STATE_A" in (_tc(dict, r.structured_content))["item"]["body"]
 
     asyncio.run(go())
@@ -178,13 +178,13 @@ def test_commit_valid_id_still_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0005", "title": "T", "body": "B"})
-            p = tmp_path / "seg" / "ADR-0005.md"
+            await c.call_tool("create", {"title": "T", "body": "B"})
+            p = tmp_path / "seg" / "ADR-0001.md"
             p.write_text(p.read_text(encoding="utf-8") + "\nextra\n", encoding="utf-8")
-            r = await c.call_tool("commit", {"ids": ["ADR-0005"], "message": "checkpoint"})
+            r = await c.call_tool("commit", {"ids": ["ADR-0001"], "message": "checkpoint"})
         assert (_tc(dict, r.structured_content))["ok"] is True
         assert (_tc(dict, r.structured_content))["commit"] is not None
-        assert (_tc(dict, r.structured_content))["ids"] == ["ADR-0005"]
+        assert (_tc(dict, r.structured_content))["ids"] == ["ADR-0001"]
 
     asyncio.run(go())
 
@@ -194,8 +194,8 @@ def test_commit_no_dirty_still_works(tmp_path: Path) -> None:
 
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool("create", {"id": "ADR-0006", "title": "T", "body": "B"})
-            r = await c.call_tool("commit", {"ids": ["ADR-0006"], "message": "noop"})
+            await c.call_tool("create", {"title": "T", "body": "B"})
+            r = await c.call_tool("commit", {"ids": ["ADR-0001"], "message": "noop"})
         assert (_tc(dict, r.structured_content))["ok"] is True
         assert (_tc(dict, r.structured_content))["commit"] is None
 

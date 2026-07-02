@@ -20,7 +20,7 @@ def test_revert_restores_previous_commit_and_creates_new_commit(tmp_path: Path) 
             # Create ADR-0001 with body "STATE_A" (commit A).
             await c.call_tool(
                 "create",
-                {"id": "ADR-0001", "title": "T", "body": "STATE_A"},
+                {"title": "T", "body": "STATE_A"},
             )
             # Update to "STATE_B" (commit B).
             await c.call_tool(
@@ -59,7 +59,7 @@ def test_revert_to_current_head_returns_current_body_no_new_commit(tmp_path: Pat
         async with _client(tmp_path) as c:
             await c.call_tool(
                 "create",
-                {"id": "ADR-0001", "title": "T", "body": "STATE_A"},
+                {"title": "T", "body": "STATE_A"},
             )
             result = await c.call_tool(
                 "revert",
