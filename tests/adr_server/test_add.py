@@ -13,7 +13,6 @@ def test_add_returns_entity_dict(tmp_path: Path) -> None:
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0007",
                     "title": "Some decision",
                     "body": "prose",
                 },
@@ -21,33 +20,37 @@ def test_add_returns_entity_dict(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     data = (_tc(dict, r.structured_content))["item"]
-    assert data["id"] == "ADR-0007"
+    assert data["id"] == "ADR-0001"
     assert data["attributes"]["title"] == "Some decision"
     assert data["attributes"]["status"] == "Proposed"
     assert data["body"] == "prose"
 
 
-def test_add_duplicate_id_raises_tool_error(tmp_path: Path) -> None:
+def test_add_assigns_sequential_ids(tmp_path: Path) -> None:
+    """Server-assigned ids are sequential: first call → ADR-0001, second → ADR-0002."""
+
     async def go():
         async with _client(tmp_path) as c:
-            await c.call_tool(
+            first = await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0008",
                     "title": "First",
                     "body": "b",
                 },
             )
-            result = await c.call_tool(
+            second = await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0008",
                     "title": "Second",
                     "body": "b",
                 },
-                raise_on_error=False,
             )
-        assert result.is_error is True
+        assert isinstance(first.structured_content, dict)
+        assert isinstance(second.structured_content, dict)
+        d1 = _tc(dict, first.structured_content)["item"]
+        d2 = _tc(dict, second.structured_content)["item"]
+        assert d1["id"] == "ADR-0001"
+        assert d2["id"] == "ADR-0002"
 
     asyncio.run(go())
 
@@ -58,7 +61,6 @@ def test_add_invalid_status_raises_tool_error(tmp_path: Path) -> None:
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0009",
                     "title": "t",
                     "body": "b",
                     "attributes": {"status": "Bogus"},
@@ -76,7 +78,6 @@ def test_add_rejects_reserved_created_attribute(tmp_path: Path) -> None:
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0011",
                     "title": "t",
                     "body": "b",
                     "attributes": {"created": "x"},
@@ -95,7 +96,6 @@ def test_add_rejects_other_reserved_attributes(tmp_path: Path, reserved_key: str
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0012",
                     "title": "t",
                     "body": "b",
                     "attributes": {reserved_key: "x"},
@@ -113,7 +113,6 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
             return await c.call_tool(
                 "create",
                 {
-                    "id": "ADR-0010",
                     "title": "t",
                     "body": "b",
                     "attributes": {"status": "Accepted"},

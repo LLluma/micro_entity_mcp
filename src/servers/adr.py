@@ -40,9 +40,9 @@ from servers.schemas import (
 # ---------------------------------------------------------------------------
 
 ADR_INSTRUCTIONS = """\
-ADR profile: durable architecture-decision records. Ids are caller-supplied and
-human-meaningful (ADR-NNNN) and collisions are rejected; statuses are Proposed /
-Accepted / Superseded. The log is append-only: there is no delete or clear — a
+ADR profile: durable architecture-decision records. Ids are server-assigned,
+sequential and zero-padded (ADR-NNNN); statuses are Proposed / Accepted /
+Superseded. The log is append-only: there is no delete or clear — a
 changed decision is a new record plus a Superseded status on the old one, via
 supersede.
 
@@ -219,7 +219,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
     @mcp.tool(annotations={"destructiveHint": False})
     def create(
-        id: str,
         title: str,
         body: str,
         attributes: Annotated[
@@ -231,9 +230,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
         ] = None,
         project: str = "",
     ) -> ItemCommitResult:
-        """Create an ADR with id, title, and body; default status
-        "Proposed".  Collision → error if id already exists."""
+        """Create an ADR. The server assigns a sequential id (ADR-NNNN);
+        default status is "Proposed"."""
         store = _resolve_store(provider, project)
+        new_id = _next_adr_id(store)
         attrs = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & attrs.keys()
         if bad:
@@ -249,12 +249,10 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         root = _require_repo(store)
         try:
-            entity = store.create(id, attributes=attrs, body=body)
-        except FileExistsError:
-            raise ToolError(f"decision already exists: {id}") from None
+            entity = store.create(new_id, attributes=attrs, body=body)
         except FormError as e:
             raise ToolError(str(e)) from e
-        sha = vcs.commit_paths(root, [store.path_for(id)], f"create adr {id}")
+        sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create adr {new_id}")
 
         return {"item": _entity_to_dict(entity), "commit": sha}
 
