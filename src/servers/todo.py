@@ -189,24 +189,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
         }
 
     @mcp.tool
-    def query(
-        criteria: dict[str, list] | None = None,
-        project: str = "",
-    ) -> dict:
-        """Return todos whose attributes match `criteria`.
-
-        `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
-        values. Matching is within-key OR, across-key AND — a record matches a key if its
-        attribute equals ANY listed value, and must match every key given. Matching is
-        type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
-        cross-match, so pass correctly-typed values.
-        """
-        store = _resolve_store(provider, project)
-        entities, _ = store.load_all()
-        matched = query_entities(entities, criteria or {})
-        return {"items": [_entity_to_dict(e) for e in matched]}
-
-    @mcp.tool
     def update(
         id: str,
         status: str | None = None,
@@ -254,21 +236,74 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def commit(ids: list[str], message: str, project: str = "") -> dict:
-        """Stage and commit the named todo files.
-
-        Returns the new commit SHA or ``None`` when there were no pending
-        changes.  Raises ``ToolError("storage is not under git")`` if the
-        store's partition directory is not inside a git repository.
-        """
+    def delete(id: str, project: str = "") -> dict:
+        """Delete a todo entity by id."""
         store = _resolve_store(provider, project)
         root = _require_repo(store)
-        for i in ids:
-            if not store.exists(i):
-                raise ToolError(f"not found: {i}")
-        paths = [store.path_for(i) for i in ids]
-        sha = vcs.commit_paths(root, paths, message)
-        return {"ok": True, "commit": sha, "ids": ids}
+        try:
+            store.delete(id)
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
+        return {"ok": True, "id": id, "commit": sha}
+
+    @mcp.tool
+    def clear(project: str = "") -> dict:
+        """Delete all todos in the partition."""
+        store = _resolve_store(provider, project)
+        n = store.clear()
+        return {"ok": True, "cleared": n}
+
+    @mcp.tool
+    def query(
+        criteria: dict[str, list] | None = None,
+        project: str = "",
+    ) -> dict:
+        """Return todos whose attributes match `criteria`.
+
+        `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
+        values. Matching is within-key OR, across-key AND — a record matches a key if its
+        attribute equals ANY listed value, and must match every key given. Matching is
+        type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
+        cross-match, so pass correctly-typed values.
+        """
+        store = _resolve_store(provider, project)
+        entities, _ = store.load_all()
+        matched = query_entities(entities, criteria or {})
+        return {"items": [_entity_to_dict(e) for e in matched]}
+
+    @mcp.tool(name="next")
+    def next_tool(project: str = "") -> dict:
+        """Return the first actionable todo (status todo or in-progress,
+        lowest order) as {"item": <entity>}, or {"item": null} if none."""
+        store = _resolve_store(provider, project)
+        entities, _ = store.load_all()
+        actionable = [
+            e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
+        ]
+        if not actionable:
+            return {"item": None}
+
+        def _sort_key(e: Entity):
+            val = e.attributes.get(ORDER_KEY)
+            if isinstance(val, int) and not isinstance(val, bool):
+                return (0, val)
+            else:
+                return (1, 0)
+
+        actionable.sort(key=_sort_key)
+        return {"item": _entity_to_dict(actionable[0])}
+
+    @mcp.tool
+    def is_complete(project: str = "") -> dict:
+        """True when no todo is still open (todo/in-progress/blocked)."""
+        store = _resolve_store(provider, project)
+        entities, _ = store.load_all()
+        return {
+            "complete": not any(
+                e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
+            )
+        }
 
     @mcp.tool
     def patch_body(
@@ -300,38 +335,40 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool
-    def revert(
-        id: str,
-        ref: str,
-        project: str = "",
-    ) -> dict:
-        """Restore a todo entity to its contents at *ref* and commit forward.
+    def commit(ids: list[str], message: str, project: str = "") -> dict:
+        """Stage and commit the named todo files.
 
-        Reads the file as committed at *ref*, writes it back byte-for-byte,
-        and creates a forward commit.  History is never rewritten.  Returns
-        the restored entity.
+        Returns the new commit SHA or ``None`` when there were no pending
+        changes.  Raises ``ToolError("storage is not under git")`` if the
+        store's partition directory is not inside a git repository.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        for i in ids:
+            if not store.exists(i):
+                raise ToolError(f"not found: {i}")
+        paths = [store.path_for(i) for i in ids]
+        sha = vcs.commit_paths(root, paths, message)
+        return {"ok": True, "commit": sha, "ids": ids}
+
+    @mcp.tool
+    def history(
+        id: str,
+        project: str = "",
+        limit: int = 20,
+    ) -> dict:
+        """Return the git commit history for a single todo file.
+
+        Returns ``{"commits": [...]}`` where each entry is ``{"sha", "date",
+        "message"}`` ordered newest-first.  ``limit`` caps the number of
+        records returned (default 20).  Raises ``ToolError`` if the store is
+        not under git.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
-        entity_path = store.path_for(id)
-        content = vcs.read_at_ref(root, entity_path, ref)
-        store.atomic_write(entity_path, content)
-        sha = vcs.commit_paths(root, [entity_path], f"revert todo {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id)), "commit": sha}
-
-    @mcp.tool
-    def delete(id: str, project: str = "") -> dict:
-        """Delete a todo entity by id."""
-        store = _resolve_store(provider, project)
-        root = _require_repo(store)
-        try:
-            store.delete(id)
-        except NotFoundError as e:
-            raise ToolError(f"not found: {id}") from e
-        sha = vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
-        return {"ok": True, "id": id, "commit": sha}
+        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
 
     @mcp.tool
     def diff(
@@ -359,64 +396,27 @@ def build_server(provider: StoreProvider) -> FastMCP:
         effective_ref = ref if ref is not None else "HEAD"
         return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
 
-    @mcp.tool(name="next")
-    def next_tool(project: str = "") -> dict:
-        """Return the first actionable todo (status todo or in-progress,
-        lowest order) as {"item": <entity>}, or {"item": null} if none."""
-        store = _resolve_store(provider, project)
-        entities, _ = store.load_all()
-        actionable = [
-            e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
-        ]
-        if not actionable:
-            return {"item": None}
-
-        def _sort_key(e: Entity):
-            val = e.attributes.get(ORDER_KEY)
-            if isinstance(val, int) and not isinstance(val, bool):
-                return (0, val)
-            else:
-                return (1, 0)
-
-        actionable.sort(key=_sort_key)
-        return {"item": _entity_to_dict(actionable[0])}
-
     @mcp.tool
-    def clear(project: str = "") -> dict:
-        """Delete all todos in the partition."""
-        store = _resolve_store(provider, project)
-        n = store.clear()
-        return {"ok": True, "cleared": n}
-
-    @mcp.tool
-    def history(
+    def revert(
         id: str,
+        ref: str,
         project: str = "",
-        limit: int = 20,
     ) -> dict:
-        """Return the git commit history for a single todo file.
+        """Restore a todo entity to its contents at *ref* and commit forward.
 
-        Returns ``{"commits": [...]}`` where each entry is ``{"sha", "date",
-        "message"}`` ordered newest-first.  ``limit`` caps the number of
-        records returned (default 20).  Raises ``ToolError`` if the store is
-        not under git.
+        Reads the file as committed at *ref*, writes it back byte-for-byte,
+        and creates a forward commit.  History is never rewritten.  Returns
+        the restored entity.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
-        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
-
-    @mcp.tool
-    def is_complete(project: str = "") -> dict:
-        """True when no todo is still open (todo/in-progress/blocked)."""
-        store = _resolve_store(provider, project)
-        entities, _ = store.load_all()
-        return {
-            "complete": not any(
-                e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
-            )
-        }
+        entity_path = store.path_for(id)
+        content = vcs.read_at_ref(root, entity_path, ref)
+        store.atomic_write(entity_path, content)
+        sha = vcs.commit_paths(root, [entity_path], f"revert todo {id} to {ref}")
+        return {"item": _entity_to_dict(store.get(id)), "commit": sha}
 
     return mcp
 
