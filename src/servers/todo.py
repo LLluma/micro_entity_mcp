@@ -240,13 +240,15 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"ok": True, "cleared": n}
 
     @mcp.tool
-    def is_complete(project: str = "") -> bool:
+    def is_complete(project: str = "") -> dict:
         """True when no todo is still open (todo/in-progress/blocked)."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
-        return not any(
-            e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
-        )
+        return {
+            "complete": not any(
+                e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
+            )
+        }
 
     return mcp
 
