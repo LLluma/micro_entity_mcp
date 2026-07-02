@@ -402,6 +402,27 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
+    def revert(
+        id: str,
+        ref: str,
+        project: str = "",
+    ) -> dict:
+        """Restore an ADR to its contents at *ref* and commit forward.
+
+        Reads the file as committed at *ref*, writes it back
+        byte-for-byte via ``atomic_write``, and creates a new forward
+        commit.  History is never rewritten.  Returns the restored
+        entity.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        entity_path = store.path_for(id)
+        content = vcs.read_at_ref(root, entity_path, ref)
+        store.atomic_write(entity_path, content)
+        vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
+        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize))}
+
+    @mcp.tool
     def diff(
         id: str,
         ref: str = "HEAD",
