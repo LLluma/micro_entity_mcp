@@ -253,6 +253,20 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"item": _entity_to_dict(updated)}
 
     @mcp.tool
+    def commit(ids: list[str], message: str, project: str = "") -> dict:
+        """Stage and commit the named todo files.
+
+        Returns the new commit SHA or ``None`` when there were no pending
+        changes.  Raises ``ToolError("storage is not under git")`` if the
+        store's partition directory is not inside a git repository.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        paths = [store.path_for(i) for i in ids]
+        sha = vcs.commit_paths(root, paths, message)
+        return {"ok": True, "commit": sha, "ids": ids}
+
+    @mcp.tool
     def patch_body(
         id: str,
         old: str,
