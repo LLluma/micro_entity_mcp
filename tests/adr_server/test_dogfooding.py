@@ -28,7 +28,7 @@ def test_dogfood_real_adr_files_all_load(tmp_path: Path) -> None:
     # 3. Call the list tool
     async def go():
         async with client as c:
-            return await c.call_tool("list", {})
+            return await c.call_tool("list", {"include_body": True})
 
     r = asyncio.run(go())
     data = r.data
