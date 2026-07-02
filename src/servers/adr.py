@@ -401,6 +401,23 @@ def build_server(provider: StoreProvider) -> FastMCP:
 
         return {"item": _entity_to_dict(updated)}
 
+    @mcp.tool
+    def history(
+        id: str,
+        project: str = "",
+        limit: int = 20,
+    ) -> dict:
+        """Return the git commit history for a single ADR file.
+
+        Returns ``{"commits": [...]}`` where each entry has ``sha``,
+        ``date``, and ``message`` (newest-first).  ``limit`` caps the
+        number of records (default 20).  Raises ``ToolError`` when the
+        store is not under git.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
+
     return mcp
 
 
