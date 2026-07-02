@@ -9,6 +9,7 @@ from typing import cast
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
+from micro_entity import vcs
 from micro_entity.codec import CommentedMap
 from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
@@ -123,6 +124,18 @@ def _resolve_store(
         raise ToolError(str(e)) from e
 
 
+def _require_repo(store: MarkdownStore) -> Path:
+    """Resolve the enclosing git repo root for the store's partition dir.
+
+    Raise ``ToolError("storage is not under git")`` if the dir is not under a
+    git repository.
+    """
+    try:
+        return vcs.find_repo_root(store.directory)
+    except vcs.NotAGitRepoError as e:
+        raise ToolError("storage is not under git") from e
+
+
 # ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
@@ -182,12 +195,14 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(str(e)) from e
         attrs[STATUS_KEY] = status
 
+        root = _require_repo(store)
         try:
             entity = store.create(id, attributes=attrs, body=body)
         except FileExistsError:
             raise ToolError(f"decision already exists: {id}") from None
         except FormError as e:
             raise ToolError(str(e)) from e
+        vcs.commit_paths(root, [store.path_for(id)], f"create adr {id}")
 
         return {"item": _entity_to_dict(entity)}
 
@@ -244,6 +259,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             patch[STATUS_KEY] = status
 
         body_arg = body if body is not None else UNSET
+        root = _require_repo(store)
 
         try:
             updated = store.update(
@@ -256,6 +272,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             raise ToolError(f"not found: {id}") from e
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
+        vcs.commit_paths(root, [store.path_for(id)], f"update adr {id}")
 
         return {"item": _entity_to_dict(updated)}
 
@@ -264,6 +281,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """Mark old_id Superseded (superseded_by=new_id) and record new_id
         as superseding it; atomic with rollback on failure."""
         store = _resolve_store(provider, project)
+        root = _require_repo(store)
         for ident in (old_id, new_id):
             try:
                 exists = store.exists(ident)
@@ -291,6 +309,11 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except Exception as exc:
             store.atomic_write(store.path_for(old_id), old_original_text)
             raise ToolError(str(exc)) from exc
+        vcs.commit_paths(
+            root,
+            [store.path_for(old_id), store.path_for(new_id)],
+            f"supersede adr {old_id} -> {new_id}",
+        )
 
         return {"superseded": _entity_to_dict(old), "superseding": _entity_to_dict(new)}
 
@@ -338,6 +361,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         found, or the text appears more than once.
         """
         store = _resolve_store(provider, project)
+        root = _require_repo(store)
         if not store.exists(id):
             raise ToolError(f"not found: {id}")
 
@@ -359,6 +383,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             updated = store.update(id, body=new_body, normalize=_adr_normalize)
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
+        vcs.commit_paths(root, [store.path_for(id)], f"patch_body adr {id}")
 
         return {"item": _entity_to_dict(updated)}
 
