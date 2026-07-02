@@ -337,6 +337,23 @@ def build_server(provider: StoreProvider) -> FastMCP:
         return {"ok": True, "cleared": n}
 
     @mcp.tool
+    def history(
+        id: str,
+        project: str = "",
+        limit: int = 20,
+    ) -> dict:
+        """Return the git commit history for a single todo file.
+
+        Returns ``{"commits": [...]}`` where each entry is ``{"sha", "date",
+        "message"}`` ordered newest-first.  ``limit`` caps the number of
+        records returned (default 20).  Raises ``ToolError`` if the store is
+        not under git.
+        """
+        store = _resolve_store(provider, project)
+        root = _require_repo(store)
+        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
+
+    @mcp.tool
     def is_complete(project: str = "") -> dict:
         """True when no todo is still open (todo/in-progress/blocked)."""
         store = _resolve_store(provider, project)
