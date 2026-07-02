@@ -190,25 +190,39 @@ def build_server(provider: StoreProvider) -> FastMCP:
         status: str | None = None,
         order: int | None = None,
         body: str | None = None,
+        attributes: dict | None = None,
         project: str = "",
     ) -> dict:
-        """Update a todo's status, order, and/or body by id;
-        other fields are preserved."""
+        """Update a todo's status, order, body, or arbitrary custom attributes by id;
+        other fields are preserved.
+
+        The ``attributes`` bag lets callers set any non-reserved keys (id, created,
+        updated are rejected). Explicit params (status, order) override the same
+        keys in ``attributes``.
+        """
         store = _resolve_store(provider, project)
-        attributes: dict = {}
+        # Build from a copy of the provided attributes bag
+        patch: dict = dict(attributes) if attributes else {}
+        # Reject reserved keys
+        bad = RESERVED_KEYS & patch.keys()
+        if bad:
+            raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
+        # Explicit params override the bag
         if status is not None:
+            patch[STATUS_KEY] = status
+        if order is not None:
+            patch[ORDER_KEY] = order
+        # Validate the effective status (whether from bag or explicit)
+        if STATUS_KEY in patch:
             try:
-                validate_against_set(status, STATUS_VALUES)
+                validate_against_set(patch[STATUS_KEY], STATUS_VALUES)
             except FormError as e:
                 raise ToolError(str(e)) from e
-            attributes[STATUS_KEY] = status
-        if order is not None:
-            attributes[ORDER_KEY] = order
         body_arg = body if body is not None else UNSET
         try:
             updated = store.update(
                 id,
-                attributes=attributes or None,
+                attributes=patch or None,
                 body=body_arg,
             )
         except NotFoundError as e:

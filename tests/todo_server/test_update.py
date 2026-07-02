@@ -99,3 +99,88 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
     assert updated["item"]["attributes"]["status"] == original_status
     assert fetched["item"]["body"] == original_body
     assert fetched["item"]["attributes"]["status"] == original_status
+
+
+# ---------------------------------------------------------------------------
+# New tests for the generic attributes bag
+# ---------------------------------------------------------------------------
+
+
+def test_update_custom_attribute_changes(tmp_path: Path) -> None:
+    """A custom attribute set at create can be changed via update attributes."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            created = await c.call_tool(
+                "create",
+                {"body": "priority test", "attributes": {"priority": "low"}},
+            )
+            item_id = created.data["item"]["id"]
+            await c.call_tool(
+                "update",
+                {"id": item_id, "attributes": {"priority": "high"}},
+            )
+            fetched = await c.call_tool("get", {"id": item_id})
+            return fetched.data
+
+    result = asyncio.run(go())
+    assert result["item"]["attributes"]["priority"] == "high"
+
+
+def test_update_reserved_key_raises(tmp_path: Path) -> None:
+    """Passing a reserved key via attributes raises ToolError."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            created = await c.call_tool(
+                "create",
+                {"body": "reserved test", "attributes": {}},
+            )
+            return await c.call_tool(
+                "update",
+                {"id": created.data["item"]["id"], "attributes": {"id": "x"}},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_update_invalid_status_via_attributes_raises(tmp_path: Path) -> None:
+    """Status via attributes bag is still validated against STATUS_VALUES."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            created = await c.call_tool(
+                "create",
+                {"body": "status validation", "attributes": {}},
+            )
+            return await c.call_tool(
+                "update",
+                {"id": created.data["item"]["id"], "attributes": {"status": "garbage"}},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+
+
+def test_update_explicit_status_wins_over_attributes(tmp_path: Path) -> None:
+    """When both status= and attributes contain status, explicit wins."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            created = await c.call_tool(
+                "create",
+                {"body": "precedence test", "attributes": {}},
+            )
+            item_id = created.data["item"]["id"]
+            await c.call_tool(
+                "update",
+                {"id": item_id, "status": "done", "attributes": {"status": "todo"}},
+            )
+            fetched = await c.call_tool("get", {"id": item_id})
+            return fetched.data["item"]["attributes"]["status"]
+
+    status = asyncio.run(go())
+    assert status == "done"
