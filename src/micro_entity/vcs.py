@@ -90,6 +90,37 @@ def commit_paths(repo_root: Path, paths: list[Path], message: str) -> str | None
     return sha_result.stdout.strip()
 
 
+def path_in_history(repo_root: Path, path: Path) -> bool:
+    """Return True if *path* has at least one commit in the repo's history.
+
+    Uses ``git log --oneline -1 -- <relpath>``; a non-empty result means the
+    path is known to history. A path that was committed then deleted (with the
+    deletion committed) is still 'in history' and returns True. A path that was
+    never committed returns False.
+    """
+    rel = str(path.relative_to(repo_root)).replace("\\", "/")
+
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "log",
+            "--oneline",
+            "-1",
+            "--",
+            rel,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        return False
+    return bool(result.stdout.strip())
+
+
 def file_log(repo_root: Path, path: Path, limit: int) -> list[dict]:
     """Return the git log entries for *path* up to *limit* commits.
 
