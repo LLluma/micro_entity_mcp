@@ -434,20 +434,28 @@ def build_server(provider: StoreProvider) -> FastMCP:
     @mcp.tool
     def diff(
         id: str,
-        ref: str = "HEAD",
+        ref: str | None = None,
         to: str | None = None,
         project: str = "",
     ) -> dict:
-        """Return the unified diff for an ADR file between *ref* and *to*.
+        """Return the unified diff for an ADR file.
 
-        When *to* is ``None`` the diff is between *ref* and the working tree.
-        Returns ``{"diff": <text>}`` -- empty string when no difference.
+        With no refs (the default), shows the last commit that touched this
+        file versus its parent (or initial addition for a first commit).  When
+        *ref* is given, the diff is between *ref* and *to* (or the working
+        tree when *to* is omitted).
+
+        Returns ``{"diff": <text>}`` -- an empty string when there is no
+        difference.
         """
         store = _resolve_store(provider, project)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
-        return {"diff": vcs.file_diff(root, store.path_for(id), ref, to)}
+        if ref is None and to is None:
+            return {"diff": vcs.last_change_diff(root, store.path_for(id))}
+        effective_ref = ref if ref is not None else "HEAD"
+        return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
 
     @mcp.tool
     def history(

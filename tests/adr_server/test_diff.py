@@ -82,6 +82,101 @@ def test_diff_same_ref_to_head_is_empty(tmp_path: Path) -> None:
     asyncio.run(go())
 
 
+def test_diff_no_ref_after_update(tmp_path: Path) -> None:
+    """diff(id) with no ref args returns the last-change diff (created+updated -> 2 commits)."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "create",
+                {
+                    "id": "ADR-0100",
+                    "title": "T",
+                    "body": "ORIGINAL_BODY",
+                },
+            )
+            await c.call_tool(
+                "update",
+                {
+                    "id": "ADR-0100",
+                    "body": "UPDATED_BODY_ABC",
+                    "status": "Accepted",
+                },
+            )
+            r = await c.call_tool("diff", {"id": "ADR-0100"})
+        diff_text = r.data["diff"]
+        assert isinstance(diff_text, str)
+        assert diff_text  # non-empty — last commit changed body
+        assert "UPDATED_BODY_ABC" in diff_text
+
+    asyncio.run(go())
+
+
+def test_diff_no_ref_fresh_adr(tmp_path: Path) -> None:
+    """diff(id) with no ref on a freshly-created ADR shows its content as an addition."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "create",
+                {
+                    "id": "ADR-0200",
+                    "title": "T",
+                    "body": "FRESH_BODY",
+                },
+            )
+            r = await c.call_tool("diff", {"id": "ADR-0200"})
+        diff_text = r.data["diff"]
+        assert isinstance(diff_text, str)
+        assert diff_text  # non-empty — initial commit shows file as addition
+        assert "FRESH_BODY" in diff_text
+
+    asyncio.run(go())
+
+
+def test_diff_explicit_range(tmp_path: Path) -> None:
+    """diff(id, ref='HEAD~1', to='HEAD') still works as an explicit range."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            await c.call_tool(
+                "create",
+                {"id": "ADR-0300", "title": "T", "body": "ORIGINAL"},
+            )
+            await c.call_tool(
+                "update",
+                {"id": "ADR-0300", "body": "CHANGED", "status": "Accepted"},
+            )
+            r = await c.call_tool(
+                "diff",
+                {"id": "ADR-0300", "ref": "HEAD~1"},
+            )
+        diff_text = r.data["diff"]
+        assert diff_text  # non-empty
+        # working tree = HEAD content (auto-commit), so ref vs working = ref vs HEAD
+        assert "CHANGED" in diff_text
+
+    asyncio.run(go())
+
+
+def test_diff_not_found_guard(tmp_path: Path) -> None:
+    """diff(nonexistent_id) raises 'not found: <id>' guard preserved."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            r = await c.call_tool(
+                "diff",
+                {"id": "NOPE-ID", "ref": "HEAD"},
+                raise_on_error=False,
+            )
+        assert r.is_error is True
+        content_list = r.content or []
+        errmsg = content_list[0].text if content_list and content_list[0].type == "text" else ""
+        assert "not found: NOPE-ID" in errmsg
+
+    asyncio.run(go())
+
+
 def test_diff_non_git_store_raises_tool_error() -> None:
     tmpdir = tempfile.mkdtemp()
     try:
