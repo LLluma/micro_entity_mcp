@@ -14,7 +14,7 @@ def test_delete_removes_item(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "deleteme", "attributes": {}})
-            item_id = created.data["id"]
+            item_id = created.data["item"]["id"]
             deleted = await c.call_tool("delete", {"id": item_id})
             return deleted.data, item_id
 

@@ -13,7 +13,7 @@ def test_get_returns_created_entity(tmp_path: Path) -> None:
     async def go():
         async with _client(tmp_path) as c:
             created = await c.call_tool("create", {"body": "get test item", "attributes": {}})
-            entity_id = created.data["id"]
+            entity_id = created.data["item"]["id"]
             result = await c.call_tool("get", {"id": entity_id})
             return result.data
 

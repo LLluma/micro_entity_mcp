@@ -16,9 +16,9 @@ def test_update_status_transition_persists(tmp_path: Path) -> None:
                 "create",
                 {"body": "update status test", "attributes": {}},
             )
-            item_id = created.data["id"]
+            item_id = created.data["item"]["id"]
             updated = await c.call_tool("update", {"id": item_id, "status": "in-progress"})
-            return created.data, updated.data
+            return created.data["item"], updated.data
 
     created, updated = asyncio.run(go())
     assert created["attributes"]["status"] == "todo"
@@ -34,7 +34,9 @@ def test_update_status_invalid_raises(tmp_path: Path) -> None:
                 "create",
                 {"body": "bad status", "attributes": {}},
             )
-            return await c.call_tool("update", {"id": created.data["id"], "status": "bogus"})
+            return await c.call_tool(
+                "update", {"id": created.data["item"]["id"], "status": "bogus"}
+            )
 
     with pytest.raises(ToolError):
         asyncio.run(go())
@@ -49,7 +51,7 @@ def test_update_order_change_persists(tmp_path: Path) -> None:
                 "create",
                 {"body": "order test", "attributes": {}},
             )
-            item_id = created.data["id"]
+            item_id = created.data["item"]["id"]
             updated = await c.call_tool("update", {"id": item_id, "order": 5})
             fetched = await c.call_tool("get", {"id": item_id})
             return updated.data, fetched.data
@@ -79,9 +81,9 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
                 "create",
                 {"body": "original body", "attributes": {"status": "done"}},
             )
-            item_id = created.data["id"]
-            original_body = created.data["body"]
-            original_status = created.data["attributes"]["status"]
+            item_id = created.data["item"]["id"]
+            original_body = created.data["item"]["body"]
+            original_status = created.data["item"]["attributes"]["status"]
             updated = await c.call_tool("update", {"id": item_id, "order": 99})
             fetched = await c.call_tool("get", {"id": item_id})
             return updated.data, fetched.data, original_body, original_status

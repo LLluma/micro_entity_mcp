@@ -124,7 +124,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         attrs[ORDER_KEY] = _next_order(store)
         new_id = _next_id(store)
         created = store.create(new_id, attributes=attrs, body=body)
-        return _entity_to_dict(created)
+        return {"item": _entity_to_dict(created)}
 
     @mcp.tool
     def get(id: str, project: str = "") -> dict:
