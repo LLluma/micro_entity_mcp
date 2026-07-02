@@ -19,9 +19,9 @@ def test_get_returns_added_entity(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     data = r.data
-    assert data["id"] == "ADR-0007"
-    assert data["attributes"]["title"] == "T"
-    assert data["body"] == "prose"
+    assert data["item"]["id"] == "ADR-0007"
+    assert data["item"]["attributes"]["title"] == "T"
+    assert data["item"]["body"] == "prose"
 
 
 def test_get_legacy_migration(tmp_path: Path) -> None:
@@ -39,10 +39,10 @@ def test_get_legacy_migration(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     data = r.data
-    assert data["attributes"]["title"] == "Legacy"
+    assert data["item"]["attributes"]["title"] == "Legacy"
     # Migrated timestamps should be midnight UTC of the date
-    assert data["created"] == "2026-06-29T00:00:00Z"
-    assert data["updated"] == "2026-06-29T00:00:00Z"
+    assert data["item"]["created"] == "2026-06-29T00:00:00Z"
+    assert data["item"]["updated"] == "2026-06-29T00:00:00Z"
 
 
 def test_get_missing_id_raises_tool_error(tmp_path: Path) -> None:

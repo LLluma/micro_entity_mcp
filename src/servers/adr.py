@@ -187,7 +187,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except (FormError, ValueError) as e:
             raise ToolError(str(e)) from e
 
-        return _entity_to_dict(entity)
+        return {"item": _entity_to_dict(entity)}
 
     @mcp.tool(name="list")
     def list_decisions(project: str = "", include_body: bool = False) -> dict:
