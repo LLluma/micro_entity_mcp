@@ -280,6 +280,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     def get(id: str, project: str = "") -> ItemResult:
         """Fetch one ADR by id, migrating legacy date-only records."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         try:
             entity = store.get(id, normalize=_adr_normalize)
         except NotFoundError as e:
@@ -323,6 +324,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     ) -> ItemCommitResult:
         """Update an ADR's status, body, and/or attributes by id."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         patch: dict = dict(attributes) if attributes else {}
         bad = RESERVED_KEYS & patch.keys()
         if bad:
@@ -357,6 +359,8 @@ def build_server(provider: StoreProvider) -> FastMCP:
         """Mark old_id Superseded (superseded_by=new_id) and record new_id
         as superseding it; atomic with rollback on failure."""
         store = _resolve_store(provider, project)
+        old_id = store.normalize_id(old_id)
+        new_id = store.normalize_id(new_id)
         root = _require_repo(store)
         for ident in (old_id, new_id):
             try:
@@ -454,6 +458,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         Replaces exactly one occurrence of ``old`` with ``new``.
         """
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         try:
             entity = store.get(id, normalize=_adr_normalize)
@@ -507,6 +512,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
     ) -> CommitsResult:
         """Return the git commit history for a single ADR file."""
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -531,6 +537,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         file versus its parent (or initial addition for a first commit).
         """
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -550,6 +557,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         History is never rewritten.
         """
         store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
         root = _require_repo(store)
         if not vcs.path_in_history(root, store.path_for(id)):
             raise ToolError(f"not found: {id}")
@@ -570,6 +578,7 @@ ADR_DIR = os.environ.get("ADR_DIR", str(Path.home() / ".micro_entity_adr"))
 _provider = StoreProvider(
     Path(ADR_DIR),
     resolve_segment(explicit=None, workspace=os.getcwd()),
+    normalize_id=_normalize_adr_id,
 )
 mcp = build_server(_provider)
 

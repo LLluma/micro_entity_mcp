@@ -5,7 +5,7 @@ import pytest
 from fastmcp import Client
 
 from micro_entity.partition import StoreProvider
-from servers.adr import build_server
+from servers.adr import _normalize_adr_id, build_server
 
 
 def _init_repo(p: Path) -> None:
@@ -35,7 +35,7 @@ def _ensure_repo(tmp_path: Path) -> None:
 
 def _client(tmp_path: Path) -> Client:
     _init_repo(tmp_path)
-    return Client(build_server(StoreProvider(tmp_path, "seg")))
+    return Client(build_server(StoreProvider(tmp_path, "seg", normalize_id=_normalize_adr_id)))
 
 
 # Synthetic legacy ADR records (carry `date:` but no created/updated, rich frontmatter)
