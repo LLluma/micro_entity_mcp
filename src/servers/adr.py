@@ -182,6 +182,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 "reserved keys id/created/updated are rejected."
             ),
         ] = None,
+        status: str | None = None,
         project: str = "",
     ) -> ItemCommitResult:
         """Create an ADR. The server assigns a sequential id (ADR-NNNN);
@@ -193,8 +194,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         if bad:
             raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
         attrs["title"] = title
-
-        status = attrs.get(STATUS_KEY, DEFAULT_STATUS)
+        if status is not None:
+            attrs[STATUS_KEY] = status
+        status = attrs.get(STATUS_KEY) or DEFAULT_STATUS
         try:
             validate_against_set(status, STATUS_VALUES)
         except FormError as e:

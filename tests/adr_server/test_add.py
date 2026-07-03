@@ -122,3 +122,56 @@ def test_add_custom_valid_status_honored(tmp_path: Path) -> None:
     r = asyncio.run(go())
     data = (_tc(dict, r.structured_content))["item"]
     assert data["attributes"]["status"] == "Accepted"
+
+
+def test_add_explicit_status_param(tmp_path: Path) -> None:
+    """create(..., status='Accepted') produces that status."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"title": "t", "body": "b", "status": "Accepted"},
+            )
+
+    r = asyncio.run(go())
+    data = (_tc(dict, r.structured_content))["item"]
+    assert data["attributes"]["status"] == "Accepted"
+
+
+def test_add_explicit_status_param_invalid(tmp_path: Path) -> None:
+    """create(..., status='Bogus') raises ToolError with 'invalid value'."""
+    from mcp.types import TextContent
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"title": "t", "body": "b", "status": "Bogus"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+    msg = _tc(TextContent, r.content[0]).text if r.content else ""
+    assert "invalid value" in msg
+
+
+def test_add_status_param_vs_attributes_precedence(tmp_path: Path) -> None:
+    """Explicit status param overrides attributes={'status': 'Proposed'}."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {
+                    "title": "t",
+                    "body": "b",
+                    "attributes": {"status": "Superseded"},
+                    "status": "Accepted",
+                },
+            )
+
+    r = asyncio.run(go())
+    data = (_tc(dict, r.structured_content))["item"]
+    assert data["attributes"]["status"] == "Accepted"

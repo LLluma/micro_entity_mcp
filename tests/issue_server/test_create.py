@@ -2,6 +2,8 @@ import asyncio
 from pathlib import Path
 from typing import cast as _tc
 
+from mcp.types import TextContent
+
 from tests.issue_server.conftest import _client
 
 
@@ -90,3 +92,52 @@ def test_create_rejects_reserved_id_attribute(tmp_path: Path) -> None:
 
     r = asyncio.run(go())
     assert r.is_error is True
+
+
+def test_create_explicit_status_param(tmp_path: Path) -> None:
+    """create(..., status='closed') produces that status."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool("create", {"title": "t", "body": "b", "status": "closed"})
+
+    r = asyncio.run(go())
+    data = (_tc(dict, r.structured_content))["item"]
+    assert data["attributes"]["status"] == "closed"
+
+
+def test_create_explicit_status_param_invalid(tmp_path: Path) -> None:
+    """create(..., status='bogus') raises ToolError with 'invalid value'."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"title": "t", "body": "b", "status": "bogus"},
+                raise_on_error=False,
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+    msg = _tc(TextContent, r.content[0]).text if r.content else ""
+    assert "invalid value" in msg
+
+
+def test_create_status_param_vs_attributes_precedence(tmp_path: Path) -> None:
+    """Explicit status param overrides attributes={'status': 'open'}."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {
+                    "title": "t",
+                    "body": "b",
+                    "attributes": {"status": "wontfix"},
+                    "status": "closed",
+                },
+            )
+
+    r = asyncio.run(go())
+    data = (_tc(dict, r.structured_content))["item"]
+    assert data["attributes"]["status"] == "closed"

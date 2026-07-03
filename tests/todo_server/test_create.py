@@ -5,6 +5,7 @@ from typing import cast as _tc
 
 import pytest
 from fastmcp.exceptions import ToolError
+from mcp.types import TextContent
 
 from tests.todo_server.conftest import _client
 
@@ -95,6 +96,48 @@ def test_create_rejects_other_reserved_attributes(tmp_path: Path, reserved_key: 
 
     r = asyncio.run(go())
     assert r.is_error is True
+
+
+def test_create_explicit_status_param(tmp_path: Path) -> None:
+    """create(..., status='in-progress') produces that status."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool("create", {"body": "x", "status": "in-progress"})
+
+    r = asyncio.run(go())
+    item = (_tc(dict, r.structured_content))["item"]
+    assert item["attributes"]["status"] == "in-progress"
+
+
+def test_create_explicit_status_param_invalid(tmp_path: Path) -> None:
+    """create(..., status='bogus') raises ToolError with 'invalid value'."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create", {"body": "x", "status": "bogus"}, raise_on_error=False
+            )
+
+    r = asyncio.run(go())
+    assert r.is_error is True
+    msg = _tc(TextContent, r.content[0]).text if r.content else ""
+    assert "invalid value" in msg
+
+
+def test_create_status_param_vs_attributes_precedence(tmp_path: Path) -> None:
+    """Explicit status param overrides attributes={'status': 'A'}."""
+
+    async def go():
+        async with _client(tmp_path) as c:
+            return await c.call_tool(
+                "create",
+                {"body": "x", "attributes": {"status": "done"}, "status": "blocked"},
+            )
+
+    r = asyncio.run(go())
+    item = (_tc(dict, r.structured_content))["item"]
+    assert item["attributes"]["status"] == "blocked"
 
 
 def test_create_returns_wrapped_dict(tmp_path: Path) -> None:
