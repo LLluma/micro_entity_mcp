@@ -67,7 +67,9 @@ Tools: `health`, `create`, `get`, `list`, `query`, `search`, `update`, `delete`,
 `next`, `is_complete`, `patch_body`, `history`, `diff`, `revert`. `create`
 auto-assigns a sequential zero-padded id and an `order` attribute; `next` returns
 the lowest-`order` actionable item; `is_complete` reports whether any item is
-still open.
+still open. Run-state results (create, update, delete, patch_body, revert, next)
+include a `progress: {done, total}` field (partition-wide done/total) as an
+at-a-glance run heartbeat, and `is_complete` also returns `done`/`total`.
 
 Storage dir: `$TODO_DIR` (default `~/.micro_entity_todo`).
 
@@ -121,7 +123,11 @@ OpenCode can expand `{env:HOME}` (used below); Claude Code needs a literal path.
 ### OpenCode
 
 Add the servers under the `mcp` key of your `opencode.json` (project-level
-`./opencode.json` or global `~/.config/opencode/opencode.json`). OpenCode expands
+`./opencode.json` or global `~/.config/opencode/opencode.json`). OpenCode does
+not show MCP tool output by default — to see results (including the todo
+`progress` heartbeat), enable it via the command **"Show generic tool output"**
+(command id `session.toggle.generic_tool_output`), and optionally tune verbosity
+with the `tool_output` config (`max_lines` / `max_bytes`). OpenCode expands
 `{env:VAR}` in config, so you can anchor paths to `{env:HOME}` instead of typing an
 absolute path:
 

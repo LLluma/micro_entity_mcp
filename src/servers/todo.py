@@ -48,6 +48,10 @@ Every tool returns a JSON object. Conventions:
 Storage is git-backed: the partition directory must be inside a git repository,
 otherwise any store operation fails with "storage is not under git".
 
+Run-state results (create, update, delete, patch_body, revert, next) carry a
+"progress": {"done", "total"} heartbeat over the whole partition; is_complete
+also returns done/total.
+
 The `project` argument selects the per-project partition (defaults to the
 workspace); `health` reports the resolved base / segment / dir.
 
