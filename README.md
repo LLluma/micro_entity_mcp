@@ -92,13 +92,15 @@ uv run python -m servers.adr
 Both servers speak MCP over stdio, so any MCP-capable agent can launch them as a
 local (stdio) server. The launch command is the same one shown above; point it at
 this checkout with `uv run --directory` and pass the storage dir via the
-`TODO_DIR` / `ADR_DIR` environment variables. Replace `/abs/path/to/micro_entity_mcp`
-with the absolute path to your clone.
+`TODO_DIR` / `ADR_DIR` environment variables. Adjust the paths to your clone —
+OpenCode can expand `{env:HOME}` (used below); Claude Code needs a literal path.
 
 ### OpenCode
 
 Add the servers under the `mcp` key of your `opencode.json` (project-level
-`./opencode.json` or global `~/.config/opencode/opencode.json`):
+`./opencode.json` or global `~/.config/opencode/opencode.json`). OpenCode expands
+`{env:VAR}` in config, so you can anchor paths to `{env:HOME}` instead of typing an
+absolute path:
 
 ```json
 {
@@ -106,14 +108,14 @@ Add the servers under the `mcp` key of your `opencode.json` (project-level
   "mcp": {
     "todo": {
       "type": "local",
-      "command": ["uv", "run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.todo"],
-      "environment": { "TODO_DIR": "/abs/path/to/data/todo" },
+      "command": ["uv", "run", "--directory", "{env:HOME}/code/micro_entity_mcp", "python", "-m", "servers.todo"],
+      "environment": { "TODO_DIR": "{env:HOME}/.micro_entity_todo" },
       "enabled": true
     },
     "adr": {
       "type": "local",
-      "command": ["uv", "run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.adr"],
-      "environment": { "ADR_DIR": "/abs/path/to/data/adr" },
+      "command": ["uv", "run", "--directory", "{env:HOME}/code/micro_entity_mcp", "python", "-m", "servers.adr"],
+      "environment": { "ADR_DIR": "{env:HOME}/.micro_entity_adr" },
       "enabled": true
     }
   }
