@@ -25,38 +25,56 @@ docs/
 - **`markdown_store.py`** — `MarkdownStore`, maps entity ids to `.md` files under
   a directory. Atomic writes (temp file + `os.replace`), id-traversal protection,
   and CRUD (`get`, `create`, `update`, `delete`, `load_all`, `clear`). Timestamps
-  come from an injectable clock. Optional `normalize` hook for per-profile
-  frontmatter migration.
+  come from an injectable clock. Reads hit disk fresh (no cache). Optional
+  `normalize` hook for per-profile frontmatter migration, plus an injectable
+  `normalize_id` hook applied at the lookup boundary so id-taking calls can accept
+  lenient ids (e.g. `17` → `0017`).
+- **`partition.py`** — `StoreProvider`, resolves a project/workspace to a
+  per-segment `MarkdownStore` (per-project partitioning) and threads the
+  `normalize_id` hook through to it.
+- **`vcs.py`** — git helpers (repo discovery, per-file commit/log/diff, read-at-ref)
+  backing the servers' per-mutation auto-commit and history/diff/revert tools.
 - **`codec.py`** — Markdown ⇄ frontmatter/body serialization (ruamel.yaml,
   comment/key-order preserving).
-- **`query.py`** — `query()` matches entities against criteria: logical AND across
-  keys, OR across values, type-strict equality.
+- **`query.py`** — `query()` matches entities against attribute criteria (logical
+  AND across keys, OR across values, type-strict equality); `entity_matches_text()`
+  does case-insensitive full-text matching over body + attribute values (shared by
+  both servers' `search`).
 - **`validation.py`** — attribute-shape, id, and allowed-set validation
   (`FormError`).
 
 ## Profile servers
 
-Each server is built by a `build_server(store)` factory (the testability seam)
-and exposes tools over FastMCP stdio.
+Each server is built by a `build_server(provider)` factory (the testability seam,
+taking a `StoreProvider`) and exposes tools over FastMCP stdio. Cross-cutting
+behavior on both profiles: every mutation auto-commits to git and returns its
+commit sha; `list` and `search` omit entity bodies by default (`include_body=True`
+to include them); id-taking tools accept lenient ids and report the canonical id
+on `not found`; storage must live inside a git repository.
 
 ### todo (`src/servers/todo.py`)
 
 Task management. Status values: `todo`, `in-progress`, `done`, `blocked`.
 
-Tools: `health`, `create`, `get`, `list`, `query`, `update`, `delete`, `next`,
-`clear`, `is_complete`. `create` auto-assigns a sequential zero-padded id and an
-`order` attribute; `next` returns the lowest-`order` actionable item.
+Tools: `health`, `create`, `get`, `list`, `query`, `search`, `update`, `delete`,
+`next`, `is_complete`, `patch_body`, `history`, `diff`, `revert`. `create`
+auto-assigns a sequential zero-padded id and an `order` attribute; `next` returns
+the lowest-`order` actionable item; `is_complete` reports whether any item is
+still open.
 
 Storage dir: `$TODO_DIR` (default `~/.micro_entity_todo`).
 
 ### adr (`src/servers/adr.py`)
 
 Architecture Decision Records. Status values: `Proposed`, `Accepted`,
-`Superseded`.
+`Superseded`. The log is append-only (no delete): a changed decision is a new
+record plus a `Superseded` status on the old one.
 
-Tools: `health`, `add`, `get`, `list`, `update`, `supersede`, `query`, `search`.
-`supersede` links old/new decisions and rolls back on failure. Legacy `date`
-frontmatter is normalized into `created`/`updated`.
+Tools: `health`, `create`, `get`, `list`, `query`, `search`, `update`,
+`supersede`, `patch_body`, `history`, `diff`, `revert`. `create` assigns the
+sequential `ADR-NNNN` id (caller-supplied ids are rejected); `supersede` links
+old/new decisions and rolls back on failure. Legacy `date` frontmatter is
+normalized into `created`/`updated`.
 
 Storage dir: `$ADR_DIR` (default `~/.micro_entity_adr`).
 
