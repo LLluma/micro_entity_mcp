@@ -67,6 +67,75 @@ uv run python -m servers.todo
 uv run python -m servers.adr
 ```
 
+## Installing into an MCP client
+
+Both servers speak MCP over stdio, so any MCP-capable agent can launch them as a
+local (stdio) server. The launch command is the same one shown above; point it at
+this checkout with `uv run --directory` and pass the storage dir via the
+`TODO_DIR` / `ADR_DIR` environment variables. Replace `/abs/path/to/micro_entity_mcp`
+with the absolute path to your clone.
+
+### OpenCode
+
+Add the servers under the `mcp` key of your `opencode.json` (project-level
+`./opencode.json` or global `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "todo": {
+      "type": "local",
+      "command": ["uv", "run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.todo"],
+      "environment": { "TODO_DIR": "/abs/path/to/data/todo" },
+      "enabled": true
+    },
+    "adr": {
+      "type": "local",
+      "command": ["uv", "run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.adr"],
+      "environment": { "ADR_DIR": "/abs/path/to/data/adr" },
+      "enabled": true
+    }
+  }
+}
+```
+
+### Claude Code
+
+Register each server with the CLI (the flags before `--` configure Claude Code;
+everything after `--` is the launch command):
+
+```sh
+claude mcp add todo --env TODO_DIR=/abs/path/to/data/todo \
+  -- uv run --directory /abs/path/to/micro_entity_mcp python -m servers.todo
+claude mcp add adr --env ADR_DIR=/abs/path/to/data/adr \
+  -- uv run --directory /abs/path/to/micro_entity_mcp python -m servers.adr
+```
+
+Equivalently, add them by hand to a `.mcp.json` (project scope) or
+`~/.claude.json` (user scope):
+
+```json
+{
+  "mcpServers": {
+    "todo": {
+      "command": "uv",
+      "args": ["run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.todo"],
+      "env": { "TODO_DIR": "/abs/path/to/data/todo" }
+    },
+    "adr": {
+      "command": "uv",
+      "args": ["run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.adr"],
+      "env": { "ADR_DIR": "/abs/path/to/data/adr" }
+    }
+  }
+}
+```
+
+The storage dir must live inside a git repository — the servers commit every
+mutation — so point `TODO_DIR` / `ADR_DIR` at a path under a git repo (or run
+`git init` in it once).
+
 ## Development
 
 Requires Python >= 3.11. Uses `uv`.
