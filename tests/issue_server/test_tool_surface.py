@@ -4,8 +4,17 @@ from pathlib import Path
 from tests.issue_server.conftest import _client
 
 EXPECTED_TOOLS = {
-    "health", "create", "get", "list", "query", "search",
-    "update", "patch_body", "history", "diff", "revert",
+    "health",
+    "create",
+    "get",
+    "list",
+    "query",
+    "search",
+    "update",
+    "patch_body",
+    "history",
+    "diff",
+    "revert",
 }
 FORBIDDEN_TOOLS = {"delete", "next", "is_complete", "supersede"}
 
