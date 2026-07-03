@@ -188,7 +188,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
             e for e in entities if e.attributes.get(STATUS_KEY) in {"todo", "in-progress"}
         ]
         if not actionable:
-            return {"item": None}
+            return {"item": None, "progress": _todo_progress(store)}
 
         def _sort_key(e: Entity):
             val = e.attributes.get(ORDER_KEY)
@@ -198,17 +198,20 @@ def build_server(provider: StoreProvider) -> FastMCP:
                 return (1, 0)
 
         actionable.sort(key=_sort_key)
-        return {"item": _entity_to_dict(actionable[0])}
+        return {"item": _entity_to_dict(actionable[0]), "progress": _todo_progress(store)}
 
     @mcp.tool(annotations={"readOnlyHint": True})
     def is_complete(project: str = "") -> CompleteResult:
         """True when no todo is still open (todo/in-progress/blocked)."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all()
+        p = _todo_progress(store)
         return {
             "complete": not any(
                 e.attributes.get(STATUS_KEY) in {"todo", "in-progress", "blocked"} for e in entities
-            )
+            ),
+            "done": p["done"],
+            "total": p["total"],
         }
 
     @mcp.tool(annotations={"destructiveHint": True, "idempotentHint": True})

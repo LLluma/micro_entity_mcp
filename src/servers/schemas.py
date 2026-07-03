@@ -5,6 +5,7 @@ from typing import NotRequired, TypedDict
 
 class ItemResult(TypedDict):
     item: dict | None
+    progress: NotRequired[dict]
 
 
 class ItemCommitResult(TypedDict):
@@ -31,6 +32,8 @@ class OkIdCommitResult(TypedDict):
 
 class CompleteResult(TypedDict):
     complete: bool
+    done: int
+    total: int
 
 
 class SupersedeResult(TypedDict):

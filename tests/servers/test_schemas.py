@@ -13,7 +13,7 @@ from src.servers.schemas import (
 
 
 def test_item_result_annotations():
-    assert set(ItemResult.__annotations__) == {"item"}
+    assert set(ItemResult.__annotations__) == {"item", "progress"}
 
 
 def test_item_commit_result_annotations():
@@ -33,7 +33,7 @@ def test_ok_id_commit_result_annotations():
 
 
 def test_complete_result_annotations():
-    assert set(CompleteResult.__annotations__) == {"complete"}
+    assert set(CompleteResult.__annotations__) == {"complete", "done", "total"}
 
 
 def test_supersede_result_annotations():
