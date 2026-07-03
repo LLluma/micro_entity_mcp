@@ -13,27 +13,20 @@ from pydantic import Field
 
 from micro_entity import vcs
 from micro_entity.codec import CommentedMap
-from micro_entity.entity import Entity
 from micro_entity.markdown_store import UNSET, MarkdownStore
 from micro_entity.partition import (
     StoreProvider,
-    UnresolvedSegmentError,
     resolve_segment,
 )
-from micro_entity.query import entity_matches_text
-from micro_entity.query import query as query_entities
-from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
-from servers.schemas import (
-    CommitsResult,
-    DiffResult,
-    HealthResult,
-    ItemCommitResult,
-    ItemResult,
-    ItemsResult,
-    ListResult,
-    SupersedeResult,
+from servers._common import (
+    ProfileConfig,
+    _entity_to_dict,
+    _require_repo,
+    _resolve_store,
+    register_common_tools,
 )
+from servers.schemas import ItemCommitResult, SupersedeResult
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -70,9 +63,12 @@ SUPERSEDED_BY_KEY: str = "superseded_by"
 DEFAULT_STATUS: str = "Proposed"
 RESERVED_KEYS: frozenset[str] = frozenset({"created", "updated", "id"})
 
+# Sentinel used by store.update() body=UNSET when no body is provided.
+# Exposed at module level for test monkeypatch defaults (see test_supersede.py).
+_adr_unsentinel = UNSET
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers (adr-specific)
 # ---------------------------------------------------------------------------
 
 
@@ -121,11 +117,6 @@ def _adr_normalize(fm: CommentedMap) -> CommentedMap:
     return fm
 
 
-def _entity_to_dict(entity: Entity) -> dict:
-    """Convert an Entity to a JSON-safe dict (timestamps as ISO strings)."""
-    return entity.model_dump(mode="json")
-
-
 _adr_id_re = re.compile(r"^[Aa][Dd][Rr]-?(\d+)$")
 
 
@@ -161,34 +152,6 @@ def _next_adr_id(store: MarkdownStore) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Store resolution helper (mirrors todo.py)
-# ---------------------------------------------------------------------------
-
-
-def _resolve_store(
-    provider: StoreProvider,
-    project: str | None,
-) -> MarkdownStore:
-    """Resolve the store for a tool call; raise ToolError on failure."""
-    try:
-        return provider.get(project)
-    except UnresolvedSegmentError as e:
-        raise ToolError(str(e)) from e
-
-
-def _require_repo(store: MarkdownStore) -> Path:
-    """Resolve the enclosing git repo root for the store's partition dir.
-
-    Raise ``ToolError("storage is not under git")`` if the dir is not under a
-    git repository.
-    """
-    try:
-        return vcs.find_repo_root(store.directory)
-    except vcs.NotAGitRepoError as e:
-        raise ToolError("storage is not under git") from e
-
-
-# ---------------------------------------------------------------------------
 # Factory — the testability seam
 # ---------------------------------------------------------------------------
 
@@ -196,30 +159,19 @@ def _require_repo(store: MarkdownStore) -> Path:
 def build_server(provider: StoreProvider) -> FastMCP:
     """Build the FastMCP server for the ADR profile.
 
-    All tools are registered inside this function so tests can inject a
-    mock / temporary store.
+    Common tools come from the shared scaffold; only ``create`` and
+    ``supersede`` are adr-specific.
     """
+    cfg = ProfileConfig(
+        name="adr",
+        instructions=ADR_INSTRUCTIONS,
+        status_values=STATUS_VALUES,
+        normalize=_adr_normalize,
+        normalize_id=_normalize_adr_id,
+        reserved_keys=RESERVED_KEYS,
+    )
     mcp = FastMCP("adr", instructions=ADR_INSTRUCTIONS)
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def health() -> HealthResult:
-        """Health check; returns "ok", allowed status values, and partition resolution."""
-        seg = provider.default_segment
-        if seg:
-            try:
-                store = provider.get(None)
-                dir_val = str(store.directory)
-            except UnresolvedSegmentError:
-                dir_val = None
-        else:
-            dir_val = None
-        return {
-            "status": "ok",
-            "status_values": sorted(STATUS_VALUES),
-            "base": str(provider.base),
-            "segment": seg,
-            "dir": dir_val,
-        }
+    register_common_tools(mcp, provider, cfg)
 
     @mcp.tool(annotations={"destructiveHint": False})
     def create(
@@ -259,84 +211,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create adr {new_id}")
 
         return {"item": _entity_to_dict(entity), "commit": sha}
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def get(id: str, project: str = "") -> ItemResult:
-        """Fetch one ADR by id, migrating legacy date-only records."""
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        try:
-            entity = store.get(id, normalize=_adr_normalize)
-        except NotFoundError as e:
-            raise ToolError(f"not found: {id}") from e
-        except (FormError, ValueError) as e:
-            raise ToolError(str(e)) from e
-
-        return {"item": _entity_to_dict(entity)}
-
-    @mcp.tool(name="list", annotations={"readOnlyHint": True})
-    def list_decisions(project: str = "", include_body: bool = False) -> ListResult:
-        """List all ADRs in the partition; malformed records are quarantined
-        into `errors`.  When ``include_body`` is False (default), the ``body``
-        field is omitted from each item."""
-        store = _resolve_store(provider, project)
-        entities, errors = store.load_all(normalize=_adr_normalize)
-        items: list[dict] = []
-        for e in entities:
-            d = _entity_to_dict(e)
-            if not include_body:
-                d.pop("body", None)
-            items.append(d)
-        return {
-            "items": items,
-            "errors": [{"id": err.id, "reason": err.reason} for err in errors],
-        }
-
-    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
-    def update(
-        id: str,
-        status: str | None = None,
-        body: str | None = None,
-        attributes: Annotated[
-            dict | None,
-            Field(
-                description="Free-form frontmatter bag; "
-                "reserved keys id/created/updated are rejected."
-            ),
-        ] = None,
-        project: str = "",
-    ) -> ItemCommitResult:
-        """Update an ADR's status, body, and/or attributes by id."""
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        patch: dict = dict(attributes) if attributes else {}
-        bad = RESERVED_KEYS & patch.keys()
-        if bad:
-            raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
-        if status is not None:
-            try:
-                validate_against_set(status, STATUS_VALUES)
-            except FormError as e:
-                raise ToolError(str(e)) from e
-            patch[STATUS_KEY] = status
-
-        body_arg = body if body is not None else UNSET
-        root = _require_repo(store)
-
-        try:
-            updated = store.update(
-                id,
-                attributes=(patch or None),
-                body=body_arg,
-                normalize=_adr_normalize,
-            )
-        except NotFoundError as e:
-            raise ToolError(f"not found: {id}") from e
-        except (FormError, ValueError) as e:
-            raise ToolError(str(e)) from e
-        sha = vcs.commit_paths(root, [store.path_for(id)], f"update adr {id}")
-
-        return {"item": _entity_to_dict(updated), "commit": sha}
 
     @mcp.tool(annotations={"destructiveHint": True})
     def supersede(old_id: str, new_id: str, project: str = "") -> SupersedeResult:
@@ -384,154 +258,6 @@ def build_server(provider: StoreProvider) -> FastMCP:
             "superseding": _entity_to_dict(new),
             "commit": sha,
         }
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def query(
-        criteria: Annotated[
-            dict[str, list] | None,
-            Field(
-                description="{key: [values]}: within-key OR, across-key AND; type-strict matching."
-            ),
-        ] = None,
-        project: str = "",
-    ) -> ItemsResult:
-        """Return ADRs whose attributes match `criteria`.
-
-        `criteria` has the shape `{key: [values]}`: each key maps to a list of accepted
-        values. Matching is within-key OR, across-key AND — a record matches a key if its
-        attribute equals ANY listed value, and must match every key given. Matching is
-        type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
-        cross-match, so pass correctly-typed values.
-        """
-        store = _resolve_store(provider, project)
-        entities, _ = store.load_all(normalize=_adr_normalize)
-        matched = query_entities(entities, criteria or {})
-        return {"items": [_entity_to_dict(e) for e in matched]}
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def search(
-        text: str,
-        project: str = "",
-        include_body: bool = False,
-    ) -> ItemsResult:
-        """Case-insensitive full-text search over ADR body and
-        attributes.  When ``include_body`` is False (default), the ``body``
-        field is omitted from each item."""
-        store = _resolve_store(provider, project)
-        entities, _ = store.load_all(normalize=_adr_normalize)
-        matched = [e for e in entities if entity_matches_text(e, text)]
-        items: list[dict] = []
-        for e in matched:
-            d = _entity_to_dict(e)
-            if not include_body:
-                d.pop("body", None)
-            items.append(d)
-        return {"items": items}
-
-    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
-    def patch_body(
-        id: str,
-        old: Annotated[
-            str, Field(description="Literal text to match in the body; must occur exactly once.")
-        ],
-        new: Annotated[str, Field(description="Replacement text for the matched occurrence.")],
-        project: str = "",
-    ) -> ItemCommitResult:
-        """Scoped, literal string replacement inside an ADR's body.
-
-        Replaces exactly one occurrence of ``old`` with ``new``.
-        """
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        root = _require_repo(store)
-        try:
-            entity = store.get(id, normalize=_adr_normalize)
-        except NotFoundError as e:
-            raise ToolError(f"not found: {id}") from e
-        except (FormError, ValueError) as e:
-            raise ToolError(str(e)) from e
-
-        current_body = entity.body or ""
-        count = current_body.count(old)
-        if count == 0:
-            raise ToolError("patch text not found")
-        if count > 1:
-            raise ToolError("patch text not unique")
-
-        new_body = current_body.replace(old, new, 1)
-
-        try:
-            updated = store.update(id, body=new_body, normalize=_adr_normalize)
-        except (FormError, ValueError) as e:
-            raise ToolError(str(e)) from e
-        sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body adr {id}")
-
-        return {"item": _entity_to_dict(updated), "commit": sha}
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def history(
-        id: str,
-        project: str = "",
-        limit: Annotated[
-            int, Field(description="Maximum number of commits to return (newest first).")
-        ] = 20,
-    ) -> CommitsResult:
-        """Return the git commit history for a single ADR file."""
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        root = _require_repo(store)
-        if not vcs.path_in_history(root, store.path_for(id)):
-            raise ToolError(f"not found: {id}")
-        return {"commits": vcs.file_log(root, store.path_for(id), limit)}
-
-    @mcp.tool(annotations={"readOnlyHint": True})
-    def diff(
-        id: str,
-        ref: Annotated[
-            str | None,
-            Field(description="Git ref or sha; with no refs, shows the last change to the file."),
-        ] = None,
-        to: Annotated[
-            str | None,
-            Field(description="Optional second git ref; diff is ref..to (else ref..working-tree)."),
-        ] = None,
-        project: str = "",
-    ) -> DiffResult:
-        """Return the unified diff for an ADR file.
-
-        With no refs (the default), shows the last commit that touched this
-        file versus its parent (or initial addition for a first commit).
-        """
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        root = _require_repo(store)
-        if not vcs.path_in_history(root, store.path_for(id)):
-            raise ToolError(f"not found: {id}")
-        if ref is None and to is None:
-            return {"diff": vcs.last_change_diff(root, store.path_for(id))}
-        effective_ref = ref if ref is not None else "HEAD"
-        return {"diff": vcs.file_diff(root, store.path_for(id), effective_ref, to)}
-
-    @mcp.tool(annotations={"destructiveHint": False})
-    def revert(
-        id: str,
-        ref: Annotated[str, Field(description="Git ref or sha to restore the ADR's content from.")],
-        project: str = "",
-    ) -> ItemCommitResult:
-        """Restore an ADR to its contents at *ref* and commit forward.
-
-        History is never rewritten.
-        """
-        store = _resolve_store(provider, project)
-        id = store.normalize_id(id)
-        root = _require_repo(store)
-        if not vcs.path_in_history(root, store.path_for(id)):
-            raise ToolError(f"not found: {id}")
-        entity_path = store.path_for(id)
-        content = vcs.read_at_ref(root, entity_path, ref)
-        store.atomic_write(entity_path, content)
-        sha = vcs.commit_paths(root, [entity_path], f"revert adr {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id, normalize=_adr_normalize)), "commit": sha}
 
     return mcp
 

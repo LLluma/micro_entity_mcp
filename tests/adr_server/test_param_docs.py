@@ -69,7 +69,7 @@ def test_revert_ref(tmp_path: Path) -> None:
             return tool.inputSchema["properties"]["ref"]["description"]
 
     desc = asyncio.run(go())
-    assert desc == "Git ref or sha to restore the ADR's content from."
+    assert desc == "Git ref or sha to restore the entity's content from."
 
 
 def test_history_limit(tmp_path: Path) -> None:
@@ -102,4 +102,4 @@ def test_update_attributes(tmp_path: Path) -> None:
             return tool.inputSchema["properties"]["attributes"]["description"]
 
     desc = asyncio.run(go())
-    assert desc == ("Free-form frontmatter bag; reserved keys id/created/updated are rejected.")
+    assert desc == ("Free-form attribute bag; reserved keys id/created/updated are rejected.")
