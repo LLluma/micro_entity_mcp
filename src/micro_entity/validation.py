@@ -66,4 +66,6 @@ def validate_against_set(
         raise FormError(f"expected a scalar or list of scalars, got {type(value).__name__}")
 
     if failed:
-        raise FormError(f"invalid value(s) {failed!r}: allowed values are {allowed!r}")
+        offenders = ", ".join(f"'{v}'" for v in sorted(failed, key=str))
+        values = ", ".join(f"'{v}'" for v in sorted(allowed, key=str))
+        raise FormError(f"invalid value(s): {offenders}; allowed: {values}")

@@ -183,3 +183,34 @@ class TestValidateAgainstSet:
             assert "red" in msg
             assert "green" in msg
             assert "blue" in msg
+
+    def test_scalar_message_exact_format(self) -> None:
+        """Scalar not in set: error is sorted, quoted, deterministic prose."""
+        allowed = {"open", "closed", "wontfix"}
+        try:
+            validate_against_set("resolved", allowed)
+            raise AssertionError("should have raised FormError")
+        except FormError as exc:
+            msg = str(exc)
+            assert msg == "invalid value(s): 'resolved'; allowed: 'closed', 'open', 'wontfix'"
+
+    def test_no_bracket_or_brace_chars(self) -> None:
+        """Error message must not contain [], {} characters."""
+        allowed = {"open", "closed", "wontfix"}
+        try:
+            validate_against_set("resolved", allowed)
+            raise AssertionError("should have raised FormError")
+        except FormError as exc:
+            msg = str(exc)
+            for ch in ("[", "]", "{", "}"):
+                assert ch not in msg, f"message contains {ch!r}"
+
+    def test_multiple_failed_list(self) -> None:
+        """List with two invalid values: both shown, sorted, quoted."""
+        allowed = {"open"}
+        try:
+            validate_against_set(["z", "a"], allowed)
+            raise AssertionError("should have raised FormError")
+        except FormError as exc:
+            msg = str(exc)
+            assert msg == "invalid value(s): 'a', 'z'; allowed: 'open'"
