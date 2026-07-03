@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from micro_entity.entity import Entity
-from micro_entity.query import match_attribute, query
+from micro_entity.query import entity_matches_text, match_attribute, query
 from micro_entity.validation import Scalar
 
 _fixture_ts = datetime(2024, 1, 1, tzinfo=UTC)
@@ -109,6 +109,37 @@ def _entities(attrs_list: list[dict[str, Scalar | list[Scalar]]]) -> list[Entity
     return [
         Entity(id=f"e{i}", created=ts, updated=ts, attributes=a) for i, a in enumerate(attrs_list)
     ]
+
+
+# --- text matching ---
+
+
+class TestEntityMatchesText:
+    def test_body_substring_case_insensitive(self) -> None:
+        e = Entity(
+            id="e1",
+            created=_fixture_ts,
+            updated=_fixture_ts,
+            body="Hello World",
+            attributes={"x": "y"},
+        )
+        assert entity_matches_text(e, "world") is True
+
+    def test_scalar_attribute_value_matches(self) -> None:
+        e = _entity({"status": "Done"})
+        assert entity_matches_text(e, "done") is True
+
+    def test_list_attribute_element_matches(self) -> None:
+        e = _entity({"tags": ["alpha", "beta"]})
+        assert entity_matches_text(e, "BETA") is True
+
+    def test_missing_text_returns_false(self) -> None:
+        e = _entity({"status": "open"})
+        assert entity_matches_text(e, "closed") is False
+
+    def test_none_body_does_not_match(self) -> None:
+        e = _entity({"status": "open"})
+        assert entity_matches_text(e, "body") is False
 
 
 class TestQueryTwoCriteria:

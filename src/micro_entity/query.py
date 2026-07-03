@@ -50,3 +50,23 @@ def query(entities: Iterable[Entity], criteria: Mapping[str, list[Scalar]]) -> l
         return list(entities)
 
     return [e for e in entities if all(match_attribute(e, k, vs) for k, vs in criteria.items())]
+
+
+def entity_matches_text(entity: Entity, needle: str) -> bool:
+    """Return True when needle appears in body or any attribute value.
+
+    Matching is case-insensitive. List-valued attributes match if any element
+    contains needle after stringification.
+    """
+    low = needle.lower()
+    if entity.body is not None and low in entity.body.lower():
+        return True
+    for value in entity.attributes.values():
+        if isinstance(value, list):
+            for v in value:
+                if low in str(v).lower():
+                    return True
+        else:
+            if low in str(value).lower():
+                return True
+    return False

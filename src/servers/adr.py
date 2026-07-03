@@ -20,6 +20,7 @@ from micro_entity.partition import (
     UnresolvedSegmentError,
     resolve_segment,
 )
+from micro_entity.query import entity_matches_text
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
@@ -123,25 +124,6 @@ def _adr_normalize(fm: CommentedMap) -> CommentedMap:
 def _entity_to_dict(entity: Entity) -> dict:
     """Convert an Entity to a JSON-safe dict (timestamps as ISO strings)."""
     return entity.model_dump(mode="json")
-
-
-def _entity_matches_text(entity: Entity, needle: str) -> bool:
-    """True if ``needle`` (case-insensitive) is a substring of the body or any
-    attribute value (stringified)."""
-    low = needle.lower()
-    # body
-    if entity.body is not None and low in entity.body.lower():
-        return True
-    # attributes
-    for value in entity.attributes.values():
-        if isinstance(value, list):
-            for v in value:
-                if low in str(v).lower():
-                    return True
-        else:
-            if low in str(value).lower():
-                return True
-    return False
 
 
 _adr_id_re = re.compile(r"^[Aa][Dd][Rr]-?(\d+)$")
@@ -437,7 +419,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         field is omitted from each item."""
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=_adr_normalize)
-        matched = [e for e in entities if _entity_matches_text(e, text)]
+        matched = [e for e in entities if entity_matches_text(e, text)]
         items: list[dict] = []
         for e in matched:
             d = _entity_to_dict(e)
