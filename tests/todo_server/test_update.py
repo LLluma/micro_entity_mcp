@@ -53,7 +53,7 @@ def test_update_order_change_persists(tmp_path: Path) -> None:
                 {"body": "order test", "attributes": {}},
             )
             item_id = (_tc(dict, created.structured_content))["item"]["id"]
-            updated = await c.call_tool("update", {"id": item_id, "order": 5})
+            updated = await c.call_tool("update", {"id": item_id, "attributes": {"order": 5}})
             fetched = await c.call_tool("get", {"id": item_id})
             return updated.structured_content, fetched.structured_content
 
@@ -99,7 +99,7 @@ def test_update_unspecified_fields_unchanged(tmp_path: Path) -> None:
             original_body = (_tc(dict, created.structured_content))["item"]["body"]
             sc = _tc(dict, created.structured_content)
             original_status = sc["item"]["attributes"]["status"]
-            updated = await c.call_tool("update", {"id": item_id, "order": 99})
+            updated = await c.call_tool("update", {"id": item_id, "attributes": {"order": 99}})
             fetched = await c.call_tool("get", {"id": item_id})
             return (
                 updated.structured_content,
