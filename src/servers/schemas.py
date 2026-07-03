@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 """MCP tool return envelope TypedDicts."""
 
@@ -10,6 +10,7 @@ class ItemResult(TypedDict):
 class ItemCommitResult(TypedDict):
     item: dict
     commit: str | None
+    progress: NotRequired[dict]
 
 
 class ListResult(TypedDict):
@@ -25,6 +26,7 @@ class OkIdCommitResult(TypedDict):
     ok: bool
     id: str
     commit: str | None
+    progress: NotRequired[dict]
 
 
 class CompleteResult(TypedDict):

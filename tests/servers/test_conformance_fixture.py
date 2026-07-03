@@ -23,7 +23,10 @@ def test_create_returns_expected_id(conformance_case: ConformanceCase, tmp_path:
 
     r = asyncio.run(go())
     sc = _tc(dict, r.structured_content)
-    assert set(sc.keys()) == {"item", "commit"}
+    if conformance_case.name == "todo":
+        assert set(sc.keys()) == {"item", "commit", "progress"}
+    else:
+        assert set(sc.keys()) == {"item", "commit"}
     item = _tc(dict, sc["item"])
     assert item["id"] == conformance_case.expected_id
     commit = sc["commit"]

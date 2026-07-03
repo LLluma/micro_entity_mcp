@@ -35,6 +35,7 @@ class ProfileConfig:
     normalize: Callable[[CommentedMap], CommentedMap] | None = None
     normalize_id: Callable[[str], str] | None = None
     reserved_keys: frozenset[str] = field(default=frozenset({"created", "updated", "id"}))
+    progress: Callable[[MarkdownStore], dict] | None = None
 
 
 def _entity_to_dict(entity: Entity) -> dict:
@@ -102,7 +103,10 @@ def _apply_update(
     except (FormError, ValueError) as e:
         raise ToolError(str(e)) from e
     sha = vcs.commit_paths(root, [store.path_for(id)], f"update {cfg.name} {id}")
-    return {"item": _entity_to_dict(updated), "commit": sha}
+    result: dict = {"item": _entity_to_dict(updated), "commit": sha}
+    if cfg.progress is not None:
+        result["progress"] = cfg.progress(store)
+    return result  # type: ignore[return-value]
 
 
 def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileConfig) -> None:
@@ -267,7 +271,10 @@ def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileCon
             raise ToolError(str(e)) from e
         sha = vcs.commit_paths(root, [store.path_for(id)], f"patch_body {cfg.name} {id}")
 
-        return {"item": _entity_to_dict(updated), "commit": sha}
+        result: dict = {"item": _entity_to_dict(updated), "commit": sha}
+        if cfg.progress is not None:
+            result["progress"] = cfg.progress(store)
+        return result  # type: ignore[return-value]
 
     @mcp.tool(annotations={"readOnlyHint": True})
     def history(
@@ -334,4 +341,8 @@ def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileCon
         content = vcs.read_at_ref(root, entity_path, ref)
         store.atomic_write(entity_path, content)
         sha = vcs.commit_paths(root, [entity_path], f"revert {cfg.name} {id} to {ref}")
-        return {"item": _entity_to_dict(store.get(id, normalize=cfg.normalize)), "commit": sha}
+        rev_entity = store.get(id, normalize=cfg.normalize)
+        result: dict = {"item": _entity_to_dict(rev_entity), "commit": sha}
+        if cfg.progress is not None:
+            result["progress"] = cfg.progress(store)
+        return result  # type: ignore[return-value]

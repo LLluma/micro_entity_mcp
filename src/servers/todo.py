@@ -115,6 +115,14 @@ def _next_id(store: MarkdownStore) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _todo_progress(store: MarkdownStore) -> dict:
+    """Return {done, total} for the current partition state."""
+    entities, _ = store.load_all()
+    total = len(entities)
+    done = sum(1 for e in entities if e.attributes.get(STATUS_KEY) == "done")
+    return {"done": done, "total": total}
+
+
 def build_server(provider: StoreProvider) -> FastMCP:
     """Build the FastMCP server for the todo profile.
 
@@ -128,6 +136,7 @@ def build_server(provider: StoreProvider) -> FastMCP:
         normalize=None,
         normalize_id=_normalize_todo_id,
         reserved_keys=RESERVED_KEYS,
+        progress=_todo_progress,
     )
     mcp = FastMCP("todo", instructions=TODO_INSTRUCTIONS)
     register_common_tools(mcp, provider, cfg)
@@ -165,7 +174,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         root = _require_repo(store)
         created = store.create(new_id, attributes=attrs, body=body)
         sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create todo {new_id}")
-        return {"item": _entity_to_dict(created), "commit": sha}
+        result: dict = {"item": _entity_to_dict(created), "commit": sha}
+        result["progress"] = _todo_progress(store)
+        return result  # type: ignore[return-value]
 
     @mcp.tool(name="next", annotations={"readOnlyHint": True})
     def next_tool(project: str = "") -> ItemResult:
@@ -211,7 +222,9 @@ def build_server(provider: StoreProvider) -> FastMCP:
         except NotFoundError as e:
             raise ToolError(f"not found: {id}") from e
         sha = vcs.commit_paths(root, [store.path_for(id)], f"delete todo {id}")
-        return {"ok": True, "id": id, "commit": sha}
+        result: dict = {"ok": True, "id": id, "commit": sha}
+        result["progress"] = _todo_progress(store)
+        return result  # type: ignore[return-value]
 
     return mcp
 

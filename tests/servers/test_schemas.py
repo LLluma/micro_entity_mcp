@@ -17,7 +17,7 @@ def test_item_result_annotations():
 
 
 def test_item_commit_result_annotations():
-    assert set(ItemCommitResult.__annotations__) == {"item", "commit"}
+    assert set(ItemCommitResult.__annotations__) == {"item", "commit", "progress"}
 
 
 def test_list_result_annotations():
@@ -29,7 +29,7 @@ def test_items_result_annotations():
 
 
 def test_ok_id_commit_result_annotations():
-    assert set(OkIdCommitResult.__annotations__) == {"ok", "id", "commit"}
+    assert set(OkIdCommitResult.__annotations__) == {"ok", "id", "commit", "progress"}
 
 
 def test_complete_result_annotations():
