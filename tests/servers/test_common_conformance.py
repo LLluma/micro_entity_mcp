@@ -257,7 +257,57 @@ def test_revert_returns_item_and_commit(
 
 
 # ---------------------------------------------------------------------------
-# 10. test_create_and_update_return_commit_sha
+# 10. test_query_bodyless_default_and_include_body
+# ---------------------------------------------------------------------------
+
+
+def test_query_bodyless_default_and_include_body(
+    conformance_case: ConformanceCase,
+) -> None:
+    """query drops body by default, returns it when include_body=True."""
+
+    # Create an entity tagged so we can query it back unambiguously.
+    # adr/issue require title; todo only requires body.
+    _create_args: dict = {"body": "hello world", "attributes": {"qbody": "qbody"}}
+    if conformance_case.name in ("adr", "issue"):
+        _create_args["title"] = "T"
+
+    async def seed():
+        async with conformance_case.client as c:
+            return await c.call_tool("create", _create_args)
+
+    asyncio.run(seed())
+
+    # default (no include_body) → no body key
+    async def bodyless():
+        async with conformance_case.client as c:
+            result = await c.call_tool("query", {"criteria": {"qbody": ["qbody"]}})
+            return result
+
+    r_query = asyncio.run(bodyless())
+    items = _tc(dict, r_query.structured_content)["items"]
+    assert len(items) == 1
+    assert "body" not in items[0]
+    assert "id" in items[0]
+
+    # include_body=True → body key present and correct
+    async def with_body():
+        async with conformance_case.client as c:
+            result = await c.call_tool(
+                "query",
+                {"criteria": {"qbody": ["qbody"]}, "include_body": True},
+            )
+            return result
+
+    r_with = asyncio.run(with_body())
+    items_with = _tc(dict, r_with.structured_content)["items"]
+    assert len(items_with) == 1
+    assert "body" in items_with[0]
+    assert items_with[0]["body"] == "hello world"
+
+
+# ---------------------------------------------------------------------------
+# 11. test_create_and_update_return_commit_sha
 # ---------------------------------------------------------------------------
 
 

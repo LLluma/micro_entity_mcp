@@ -185,6 +185,7 @@ def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileCon
             ),
         ] = None,
         project: str = "",
+        include_body: bool = False,
     ) -> ItemsResult:
         """Return entities whose attributes match `criteria`.
 
@@ -193,11 +194,20 @@ def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileCon
         attribute equals ANY listed value, and must match every key given. Matching is
         type-strict: a stored `1.0` is not matched by `1`, and `bool`/`int` never
         cross-match, so pass correctly-typed values.
+
+        When ``include_body`` is False (default), the ``body`` field is omitted from
+        each item.
         """
         store = _resolve_store(provider, project)
         entities, _ = store.load_all(normalize=cfg.normalize)
         matched = query_entities(entities, criteria or {})
-        return {"items": [_entity_to_dict(e) for e in matched]}
+        items: list[dict] = []
+        for e in matched:
+            d = _entity_to_dict(e)
+            if not include_body:
+                d.pop("body", None)
+            items.append(d)
+        return {"items": items}
 
     @mcp.tool(annotations={"readOnlyHint": True})
     def search(
