@@ -10,12 +10,12 @@ from pydantic import Field
 from micro_entity import vcs
 from micro_entity.codec import CommentedMap
 from micro_entity.entity import Entity
-from micro_entity.markdown_store import MarkdownStore
+from micro_entity.markdown_store import UNSET, MarkdownStore
 from micro_entity.partition import StoreProvider, UnresolvedSegmentError
 from micro_entity.query import entity_matches_text
 from micro_entity.query import query as query_entities
 from micro_entity.store import NotFoundError
-from micro_entity.validation import FormError
+from micro_entity.validation import FormError, validate_against_set
 from servers.schemas import (
     CommitsResult,
     DiffResult,
@@ -63,6 +63,46 @@ def _require_repo(store: MarkdownStore) -> Path:
         return vcs.find_repo_root(store.directory)
     except vcs.NotAGitRepoError as e:
         raise ToolError("storage is not under git") from e
+
+
+def _apply_update(
+    provider: StoreProvider,
+    cfg: ProfileConfig,
+    id: str,
+    status: str | None,
+    body: str | None,
+    attributes: dict | None,
+    project: str,
+) -> ItemCommitResult:
+    """Shared update logic: reserved-key + status validation + store.update + commit."""
+    store = _resolve_store(provider, project)
+    id = store.normalize_id(id)
+    patch: dict = dict(attributes) if attributes else {}
+    bad = cfg.reserved_keys & patch.keys()
+    if bad:
+        raise ToolError(f"cannot set reserved keys: {sorted(bad)}")
+    if status is not None:
+        patch["status"] = status
+    if "status" in patch:
+        try:
+            validate_against_set(patch["status"], cfg.status_values)
+        except FormError as e:
+            raise ToolError(str(e)) from e
+    body_arg = body if body is not None else UNSET
+    root = _require_repo(store)
+    try:
+        updated = store.update(
+            id,
+            attributes=(patch or None),
+            body=body_arg,
+            normalize=cfg.normalize,
+        )
+    except NotFoundError as e:
+        raise ToolError(f"not found: {id}") from e
+    except (FormError, ValueError) as e:
+        raise ToolError(str(e)) from e
+    sha = vcs.commit_paths(root, [store.path_for(id)], f"update {cfg.name} {id}")
+    return {"item": _entity_to_dict(updated), "commit": sha}
 
 
 def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileConfig) -> None:
@@ -118,6 +158,23 @@ def register_common_tools(mcp: FastMCP, provider: StoreProvider, cfg: ProfileCon
             "items": items,
             "errors": [{"id": err.id, "reason": err.reason} for err in errors],
         }
+
+    @mcp.tool(annotations={"destructiveHint": False, "idempotentHint": True})
+    def update(
+        id: str,
+        status: str | None = None,
+        body: str | None = None,
+        attributes: Annotated[
+            dict | None,
+            Field(
+                description="Free-form attribute bag; "
+                "reserved keys id/created/updated are rejected."
+            ),
+        ] = None,
+        project: str = "",
+    ) -> ItemCommitResult:
+        """Update an entity's status, body, and/or attributes by id."""
+        return _apply_update(provider, cfg, id, status, body, attributes, project)
 
     @mcp.tool(annotations={"readOnlyHint": True})
     def query(

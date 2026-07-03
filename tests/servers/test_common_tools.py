@@ -261,3 +261,101 @@ def test_diff_returns_diff_string(tmp_path: Path) -> None:
     assert isinstance(diff_text, str)
     assert diff_text  # non-empty
     assert "hello world" in diff_text
+
+
+# ---------------------------------------------------------------------------
+# update
+# ---------------------------------------------------------------------------
+
+
+def test_update_status_persists(tmp_path: Path) -> None:
+    """Updating status to 'closed' persists; confirmed via follow-up get."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool("update", {"id": "0001", "status": "closed"})
+            result = await c.call_tool("get", {"id": "0001"})
+            return result
+
+    r = asyncio.run(go())
+    d = _tc(dict, r.structured_content)
+    assert d["item"]["attributes"]["status"] == "closed"
+
+
+def test_update_invalid_explicit_status_raises(tmp_path: Path) -> None:
+    """Explicit invalid status ('bogus') raises a tool error."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool("update", {"id": "0001", "status": "bogus"})
+
+    with pytest.raises(ToolError, match=r"invalid value"):
+        asyncio.run(go())
+
+
+def test_update_invalid_status_in_attributes_raises(tmp_path: Path) -> None:
+    """Invalid status via attributes={'status': 'bogus'} raises a tool error."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool("update", {"id": "0001", "attributes": {"status": "bogus"}})
+
+    with pytest.raises(ToolError, match=r"invalid value"):
+        asyncio.run(go())
+
+
+def test_update_explicit_status_wins_over_attributes(tmp_path: Path) -> None:
+    """explicit status='closed' wins when attributes={'status': 'open'} is also passed."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool(
+                "update",
+                {"id": "0001", "status": "closed", "attributes": {"status": "open"}},
+            )
+            result = await c.call_tool("get", {"id": "0001"})
+            return result
+
+    r = asyncio.run(go())
+    d = _tc(dict, r.structured_content)
+    assert d["item"]["attributes"]["status"] == "closed"
+
+
+def test_update_reserved_key_raises(tmp_path: Path) -> None:
+    """attributes={'id': 'x'} (reserved key) raises a tool error."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool("update", {"id": "0001", "attributes": {"id": "x"}})
+
+    with pytest.raises(ToolError, match=r"cannot set reserved keys"):
+        asyncio.run(go())
+
+
+def test_update_missing_id_raises(tmp_path: Path) -> None:
+    """Update on a missing id raises a tool error with message 'not found: 0002'."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool("update", {"id": "0002"})
+
+    with pytest.raises(ToolError, match=r"not found: 0002"):
+        asyncio.run(go())
+
+
+def test_update_custom_attribute_persists(tmp_path: Path) -> None:
+    """Updating a custom attribute (priority=high) persists."""
+
+    async def go():
+        async with _client_with_seed(tmp_path) as c:
+            await c.call_tool(
+                "update",
+                {"id": "0001", "attributes": {"priority": "high"}},
+            )
+            result = await c.call_tool("get", {"id": "0001"})
+            return result
+
+    r = asyncio.run(go())
+    d = _tc(dict, r.structured_content)
+    assert d["item"]["attributes"]["priority"] == "high"
+    assert d["item"]["attributes"]["status"] == "open"  # preserved
