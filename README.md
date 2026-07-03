@@ -12,10 +12,12 @@ src/
   micro_entity/     Neutral core: entity model, store, codec, query, validation
   servers/          Thin FastMCP profile servers (todo, adr)
 tests/
-docs/
-  adr/              Architecture decision records
-  todo/             Todo entities
 ```
+
+Entity data is not stored in the repo. Each server writes its Markdown files to an
+external, git-backed directory chosen at runtime via `$TODO_DIR` / `$ADR_DIR`
+(defaults `~/.micro_entity_todo` / `~/.micro_entity_adr`), partitioned per project
+into a workspace segment.
 
 ## Core (`micro_entity`)
 
