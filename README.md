@@ -10,14 +10,15 @@ git-friendly.
 ```
 src/
   micro_entity/     Neutral core: entity model, store, codec, query, validation
-  servers/          Thin FastMCP profile servers (todo, adr)
+  servers/          Thin FastMCP profile servers (todo, adr, issue)
+  servers/_common.py Shared tool scaffold (ProfileConfig + register_common_tools)
 tests/
 ```
 
 Entity data is not stored in the repo. Each server writes its Markdown files to an
-external, git-backed directory chosen at runtime via `$TODO_DIR` / `$ADR_DIR`
-(defaults `~/.micro_entity_todo` / `~/.micro_entity_adr`), partitioned per project
-into a workspace segment.
+external, git-backed directory chosen at runtime via `$TODO_DIR` / `$ADR_DIR` /
+`$ISSUE_DIR` (defaults `~/.micro_entity_todo` / `~/.micro_entity_adr` /
+`~/.micro_entity_issue`), partitioned per project into a workspace segment.
 
 ## Core (`micro_entity`)
 
@@ -41,18 +42,22 @@ into a workspace segment.
 - **`query.py`** — `query()` matches entities against attribute criteria (logical
   AND across keys, OR across values, type-strict equality); `entity_matches_text()`
   does case-insensitive full-text matching over body + attribute values (shared by
-  both servers' `search`).
+  all profiles' `search`, provided via the common scaffold).
 - **`validation.py`** — attribute-shape, id, and allowed-set validation
   (`FormError`).
 
 ## Profile servers
 
 Each server is built by a `build_server(provider)` factory (the testability seam,
-taking a `StoreProvider`) and exposes tools over FastMCP stdio. Cross-cutting
-behavior on both profiles: every mutation auto-commits to git and returns its
-commit sha; `list` and `search` omit entity bodies by default (`include_body=True`
-to include them); id-taking tools accept lenient ids and report the canonical id
-on `not found`; storage must live inside a git repository.
+taking a `StoreProvider`) and exposes tools over FastMCP stdio. All three
+profiles share one common tool surface via the `_common.py` scaffold
+(`ProfileConfig` + `register_common_tools`), so the common tools behave
+identically across profiles (guaranteed by a parametrized conformance suite), and
+each server adds only its profile-specific tools. Cross-cutting behavior across
+all profiles: every mutation auto-commits to git and returns its commit sha;
+`list` and `search` omit entity bodies by default (`include_body=True` to include
+them); id-taking tools accept lenient ids and report the canonical id on
+`not found`; storage must live inside a git repository.
 
 ### todo (`src/servers/todo.py`)
 
@@ -80,19 +85,37 @@ normalized into `created`/`updated`.
 
 Storage dir: `$ADR_DIR` (default `~/.micro_entity_adr`).
 
+### issue (`src/servers/issue.py`)
+
+Durable "what happened" records — observations and bugs that are mutable and
+closeable but never deleted. Status values: `open` (default, only non-terminal),
+`closed`, `wontfix` (a wrong/duplicate report; never deleted).
+
+Tools: `health`, `create`, `get`, `list`, `query`, `search`, `update`,
+`patch_body`, `history`, `diff`, `revert`. There is no `delete`, `next`,
+`is_complete`, or `supersede` — closing is done via
+`update(status="closed"|"wontfix")`. `create` auto-assigns `ISSUE-NNNN` ids
+(caller-supplied ids rejected; it injects `title`).
+Meaningful free-form attributes: `title`, `external_refs` (list of `"tracker#id"`
+strings), `relates_to` (list of ADR ids), `resolved_by` (list of durable
+artifacts: commit shas and/or ADR ids), `duplicate_of` (an issue id).
+
+Storage dir: `$ISSUE_DIR` (default `~/.micro_entity_issue`).
+
 ## Running a server
 
 ```sh
 uv run python -m servers.todo
 uv run python -m servers.adr
+uv run python -m servers.issue
 ```
 
 ## Installing into an MCP client
 
-Both servers speak MCP over stdio, so any MCP-capable agent can launch them as a
+All three servers speak MCP over stdio, so any MCP-capable agent can launch them as a
 local (stdio) server. The launch command is the same one shown above; point it at
 this checkout with `uv run --directory` and pass the storage dir via the
-`TODO_DIR` / `ADR_DIR` environment variables. Adjust the paths to your clone —
+`TODO_DIR` / `ADR_DIR` / `ISSUE_DIR` environment variables. Adjust the paths to your clone —
 OpenCode can expand `{env:HOME}` (used below); Claude Code needs a literal path.
 
 ### OpenCode
@@ -117,6 +140,12 @@ absolute path:
       "command": ["uv", "run", "--directory", "{env:HOME}/code/micro_entity_mcp", "python", "-m", "servers.adr"],
       "environment": { "ADR_DIR": "{env:HOME}/.micro_entity_adr" },
       "enabled": true
+    },
+    "issue": {
+      "type": "local",
+      "command": ["uv", "run", "--directory", "{env:HOME}/code/micro_entity_mcp", "python", "-m", "servers.issue"],
+      "environment": { "ISSUE_DIR": "{env:HOME}/.micro_entity_issue" },
+      "enabled": true
     }
   }
 }
@@ -132,6 +161,8 @@ claude mcp add todo --env TODO_DIR=/abs/path/to/data/todo \
   -- uv run --directory /abs/path/to/micro_entity_mcp python -m servers.todo
 claude mcp add adr --env ADR_DIR=/abs/path/to/data/adr \
   -- uv run --directory /abs/path/to/micro_entity_mcp python -m servers.adr
+claude mcp add issue --env ISSUE_DIR=/abs/path/to/data/issue \
+  -- uv run --directory /abs/path/to/micro_entity_mcp python -m servers.issue
 ```
 
 Equivalently, add them by hand to a `.mcp.json` (project scope) or
@@ -149,14 +180,19 @@ Equivalently, add them by hand to a `.mcp.json` (project scope) or
       "command": "uv",
       "args": ["run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.adr"],
       "env": { "ADR_DIR": "/abs/path/to/data/adr" }
+    },
+    "issue": {
+      "command": "uv",
+      "args": ["run", "--directory", "/abs/path/to/micro_entity_mcp", "python", "-m", "servers.issue"],
+      "env": { "ISSUE_DIR": "/abs/path/to/data/issue" }
     }
   }
 }
 ```
 
 The storage dir must live inside a git repository — the servers commit every
-mutation — so point `TODO_DIR` / `ADR_DIR` at a path under a git repo (or run
-`git init` in it once).
+mutation — so point `TODO_DIR` / `ADR_DIR` / `ISSUE_DIR` at a path under a git
+repo (or run `git init` in it once).
 
 ## Development
 
