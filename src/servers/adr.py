@@ -13,7 +13,8 @@ from pydantic import Field
 
 from micro_entity import vcs
 from micro_entity.codec import CommentedMap
-from micro_entity.markdown_store import UNSET, MarkdownStore
+from micro_entity.markdown_store import UNSET as UNSET
+from micro_entity.markdown_store import MarkdownStore
 from micro_entity.partition import (
     StoreProvider,
     resolve_segment,
@@ -63,9 +64,6 @@ SUPERSEDED_BY_KEY: str = "superseded_by"
 DEFAULT_STATUS: str = "Proposed"
 RESERVED_KEYS: frozenset[str] = frozenset({"created", "updated", "id"})
 
-# Sentinel used by store.update() body=UNSET when no body is provided.
-# Exposed at module level for test monkeypatch defaults (see test_supersede.py).
-_adr_unsentinel = UNSET
 
 # ---------------------------------------------------------------------------
 # Helpers (adr-specific)
