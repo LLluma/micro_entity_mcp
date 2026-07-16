@@ -15,8 +15,9 @@ EXPECTED_TOOLS = {
     "history",
     "diff",
     "revert",
+    "delete",
 }
-FORBIDDEN_TOOLS = {"delete", "next", "is_complete", "supersede"}
+FORBIDDEN_TOOLS = {"next", "is_complete", "supersede"}
 
 
 def test_tool_surface_has_expected_tools(tmp_path: Path) -> None:

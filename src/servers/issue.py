@@ -12,6 +12,7 @@ from pydantic import Field
 from micro_entity import vcs
 from micro_entity.markdown_store import MarkdownStore
 from micro_entity.partition import StoreProvider, resolve_segment
+from micro_entity.store import NotFoundError
 from micro_entity.validation import FormError, validate_against_set
 from servers._common import (
     ProfileConfig,
@@ -20,7 +21,7 @@ from servers._common import (
     _resolve_store,
     register_common_tools,
 )
-from servers.schemas import ItemCommitResult
+from servers.schemas import ItemCommitResult, OkIdCommitResult
 
 # ---------------------------------------------------------------------------
 # Module constants
@@ -158,6 +159,19 @@ def build_server(provider: StoreProvider) -> FastMCP:
         sha = vcs.commit_paths(root, [store.path_for(new_id)], f"create issue {new_id}")
 
         return {"item": _entity_to_dict(entity), "commit": sha}
+
+    @mcp.tool(annotations={"destructiveHint": True, "idempotentHint": True})
+    def delete(id: str, project: str = "") -> OkIdCommitResult:
+        """Delete an issue entity by id."""
+        store = _resolve_store(provider, project)
+        id = store.normalize_id(id)
+        root = _require_repo(store)
+        try:
+            store.delete(id)
+        except NotFoundError as e:
+            raise ToolError(f"not found: {id}") from e
+        sha = vcs.commit_paths(root, [store.path_for(id)], f"delete issue {id}")
+        return {"ok": True, "id": id, "commit": sha}  # type: ignore[return-value]
 
     return mcp
 
