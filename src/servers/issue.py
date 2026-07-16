@@ -29,10 +29,11 @@ from servers.schemas import ItemCommitResult, OkIdCommitResult
 
 ISSUE_INSTRUCTIONS = """\
 Issue profile: durable "what happened" records — observations and bugs that are
-mutable and closeable but never deleted. Ids are server-assigned, sequential and
+mutable, closeable, and deletable. Ids are server-assigned, sequential and
 zero-padded (ISSUE-NNNN); statuses are open / closed / wontfix (open is the
-default and the only non-terminal state). A wrong or duplicate report is closed
-as wontfix, never deleted.
+default and the only non-terminal state). A wrong or duplicate report is normally
+closed as wontfix (preserving the trail); delete removes a record entirely (the
+removal is itself committed to git history) for accidental or sensitive entries.
 
 Every tool returns a JSON object. Conventions:
 - single entity -> {"item": {...}}
@@ -105,8 +106,8 @@ def _next_issue_id(store: MarkdownStore) -> str:
 def build_server(provider: StoreProvider) -> FastMCP:
     """Build the FastMCP server for the issue profile.
 
-    Common tools come from the shared scaffold; only ``create`` is
-    issue-specific. There is intentionally no delete/next/is_complete/supersede.
+    Common tools come from the shared scaffold; ``create`` and ``delete`` are
+    issue-specific. There is intentionally no next/is_complete/supersede.
     """
     cfg = ProfileConfig(
         name="issue",

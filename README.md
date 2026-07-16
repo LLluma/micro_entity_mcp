@@ -89,14 +89,15 @@ Storage dir: `$ADR_DIR` (default `~/.micro_entity_adr`).
 
 ### issue (`src/servers/issue.py`)
 
-Durable "what happened" records — observations and bugs that are mutable and
-closeable but never deleted. Status values: `open` (default, only non-terminal),
-`closed`, `wontfix` (a wrong/duplicate report; never deleted).
+Durable "what happened" records — observations and bugs that are mutable,
+closeable, and deletable. Status values: `open` (default, only non-terminal),
+`closed`, `wontfix` (a wrong/duplicate report, kept for the trail).
 
 Tools: `health`, `create`, `get`, `list`, `query`, `search`, `update`,
-`patch_body`, `history`, `diff`, `revert`. There is no `delete`, `next`,
+`delete`, `patch_body`, `history`, `diff`, `revert`. There is no `next`,
 `is_complete`, or `supersede` — closing is done via
-`update(status="closed"|"wontfix")`. `create` auto-assigns `ISSUE-NNNN` ids
+`update(status="closed"|"wontfix")`. `delete` removes an issue entirely (the removal is committed to git history), for
+accidental or sensitive records. `create` auto-assigns `ISSUE-NNNN` ids
 (caller-supplied ids rejected; it injects `title`).
 Meaningful free-form attributes: `title`, `external_refs` (list of `"tracker#id"`
 strings), `relates_to` (list of ADR ids), `resolved_by` (list of durable
